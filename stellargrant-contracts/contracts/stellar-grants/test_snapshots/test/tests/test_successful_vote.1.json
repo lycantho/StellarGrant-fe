@@ -137,6 +137,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "reasons"
+                    },
+                    "val": {
+                      "map": []
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "rejections"
                     },
                     "val": {
@@ -149,6 +157,14 @@
                     },
                     "val": {
                       "u32": 2
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "status_updated_at"
+                    },
+                    "val": {
+                      "u64": "0"
                     }
                   },
                   {

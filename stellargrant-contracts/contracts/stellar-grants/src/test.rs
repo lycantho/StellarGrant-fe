@@ -48,6 +48,8 @@ mod tests {
                 votes: Map::new(env),
                 approvals: 0,
                 rejections: 0,
+                reasons: Map::new(env),
+                status_updated_at: 0,
             };
             Storage::set_milestone(env, grant_id, milestone_idx, &milestone);
         });
@@ -86,6 +88,80 @@ mod tests {
     }
 
     #[test]
+    fn test_successful_rejection() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let milestone_idx = 0;
+        let reviewer = Address::generate(&env);
+        let reason = soroban_sdk::String::from_str(&env, "Incomplete results");
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, reviewers);
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        env.mock_all_auths();
+        let result = client.milestone_reject(&grant_id, &milestone_idx, &reviewer, &reason);
+
+        assert_eq!(result, true); // Majority reached (1/1)
+
+        env.as_contract(&contract_id, || {
+            let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
+            assert_eq!(updated_milestone.rejections, 1);
+            assert_eq!(updated_milestone.state, MilestoneState::Rejected);
+            assert_eq!(updated_milestone.reasons.get(reviewer).unwrap(), reason);
+        });
+    }
+
+    #[test]
+    fn test_majority_rejection() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let milestone_idx = 0;
+        let reviewer1 = Address::generate(&env);
+        let reviewer2 = Address::generate(&env);
+        let reason1 = soroban_sdk::String::from_str(&env, "Reason 1");
+        let reason2 = soroban_sdk::String::from_str(&env, "Reason 2");
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer1.clone());
+        reviewers.push_back(reviewer2.clone());
+        create_grant(&env, &contract_id, grant_id, reviewers);
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        env.mock_all_auths();
+
+        // First rejection - 1/2
+        let result1 = client.milestone_reject(&grant_id, &milestone_idx, &reviewer1, &reason1);
+        assert_eq!(result1, false);
+
+        // Second rejection - 2/2 (majority reached)
+        let result2 = client.milestone_reject(&grant_id, &milestone_idx, &reviewer2, &reason2);
+        assert_eq!(result2, true);
+
+        env.as_contract(&contract_id, || {
+            let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
+            assert_eq!(updated_milestone.state, MilestoneState::Rejected);
+            assert_eq!(updated_milestone.reasons.get(reviewer1).unwrap(), reason1);
+            assert_eq!(updated_milestone.reasons.get(reviewer2).unwrap(), reason2);
+        });
+    }
+
+    #[test]
     fn test_unauthorized_reviewer() {
         let env = Env::default();
         let (client, _, contract_id) = setup_test(&env);
@@ -113,13 +189,14 @@ mod tests {
     }
 
     #[test]
-    fn test_double_voting() {
+    fn test_double_voting_prevention() {
         let env = Env::default();
         let (client, _, contract_id) = setup_test(&env);
         let grant_id = 1;
         let milestone_idx = 0;
         let reviewer = Address::generate(&env);
         let other_reviewer = Address::generate(&env);
+        let reason = soroban_sdk::String::from_str(&env, "Reason");
 
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
@@ -135,7 +212,7 @@ mod tests {
 
         env.mock_all_auths();
         client.milestone_vote(&grant_id, &milestone_idx, &reviewer, &true);
-        let result = client.try_milestone_vote(&grant_id, &milestone_idx, &reviewer, &true);
+        let result = client.try_milestone_reject(&grant_id, &milestone_idx, &reviewer, &reason);
 
         assert_eq!(result, Err(Ok(ContractError::AlreadyVoted.into())));
     }
@@ -147,6 +224,7 @@ mod tests {
         let grant_id = 1;
         let milestone_idx = 0;
         let reviewer = Address::generate(&env);
+        let reason = soroban_sdk::String::from_str(&env, "Reason");
 
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
@@ -161,7 +239,7 @@ mod tests {
         );
 
         env.mock_all_auths();
-        let result = client.try_milestone_vote(&grant_id, &milestone_idx, &reviewer, &true);
+        let result = client.try_milestone_reject(&grant_id, &milestone_idx, &reviewer, &reason);
 
         assert_eq!(result, Err(Ok(ContractError::MilestoneNotSubmitted.into())));
     }
