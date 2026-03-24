@@ -44,15 +44,89 @@ mod tests {
     ) {
         env.as_contract(contract_id, || {
             let milestone = Milestone {
+                idx: milestone_idx,
                 state,
                 votes: Map::new(env),
                 approvals: 0,
                 rejections: 0,
                 reasons: Map::new(env),
                 status_updated_at: 0,
+                description: soroban_sdk::String::from_str(env, "Description"),
+                proof_url: soroban_sdk::String::from_str(env, "https://proof.url"),
+                submission_timestamp: env.ledger().timestamp(),
             };
             Storage::set_milestone(env, grant_id, milestone_idx, &milestone);
         });
+    }
+
+    #[test]
+    fn test_get_milestone_success() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let milestone_idx = 0;
+        let reviewer = Address::generate(&env);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, reviewers);
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        let milestone = client.get_milestone(&grant_id, &milestone_idx);
+        assert_eq!(milestone.state, MilestoneState::Submitted);
+        assert_eq!(
+            milestone.description,
+            soroban_sdk::String::from_str(&env, "Description")
+        );
+        assert_eq!(
+            milestone.proof_url,
+            soroban_sdk::String::from_str(&env, "https://proof.url")
+        );
+    }
+
+    #[test]
+    fn test_get_milestone_grant_not_found() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let result = client.try_get_milestone(&99, &0);
+        assert_eq!(result, Err(Ok(ContractError::GrantNotFound.into())));
+    }
+
+    #[test]
+    fn test_get_milestone_invalid_index() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let reviewer = Address::generate(&env);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, reviewers);
+
+        let result = client.try_get_milestone(&grant_id, &10); // Index out of bounds (total=1)
+        assert_eq!(result, Err(Ok(ContractError::InvalidInput.into())));
+    }
+
+    #[test]
+    fn test_get_milestone_not_found() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let reviewer = Address::generate(&env);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, reviewers);
+        // Grant exists but milestone not created in storage
+
+        let result = client.try_get_milestone(&grant_id, &0);
+        assert_eq!(result, Err(Ok(ContractError::MilestoneNotFound.into())));
     }
 
     #[test]

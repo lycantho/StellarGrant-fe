@@ -140,6 +140,21 @@ impl StellarGrantsContract {
 
         Ok(majority_rejected)
     }
+
+    /// Retrieves milestone details by grant ID and milestone index.
+    pub fn get_milestone(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+    ) -> Result<Milestone, ContractError> {
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+
+        if milestone_idx >= grant.total_milestones {
+            return Err(ContractError::InvalidInput);
+        }
+
+        Storage::get_milestone(&env, grant_id, milestone_idx).ok_or(ContractError::MilestoneNotFound)
+    }
 }
 
 #[cfg(test)]

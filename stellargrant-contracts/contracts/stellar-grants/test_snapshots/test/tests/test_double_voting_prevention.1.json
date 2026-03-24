@@ -140,6 +140,30 @@
                   },
                   {
                     "key": {
+                      "symbol": "description"
+                    },
+                    "val": {
+                      "string": "Description"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_url"
+                    },
+                    "val": {
+                      "string": "https://proof.url"
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "reasons"
                     },
                     "val": {
@@ -165,6 +189,14 @@
                   {
                     "key": {
                       "symbol": "status_updated_at"
+                    },
+                    "val": {
+                      "u64": "0"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "submission_timestamp"
                     },
                     "val": {
                       "u64": "0"
