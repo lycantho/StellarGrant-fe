@@ -30,6 +30,9 @@ mod tests {
         env.as_contract(contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner,
                 token,
                 status: GrantStatus::Active,
@@ -173,6 +176,9 @@ mod tests {
 
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token_id.clone(),
             status: GrantStatus::Active,
@@ -234,6 +240,9 @@ mod tests {
         let grant_id = 1u64;
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token.clone(),
             status: GrantStatus::Completed,
@@ -292,6 +301,9 @@ mod tests {
         // initial grant state
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token_id.clone(),
             status: GrantStatus::Active,
@@ -358,6 +370,9 @@ mod tests {
 
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token.clone(),
             status: GrantStatus::Active,
@@ -426,6 +441,9 @@ mod tests {
 
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token_id.clone(),
             status: GrantStatus::Active,
@@ -480,6 +498,9 @@ mod tests {
 
         let grant = Grant {
             id: grant_id,
+            title: String::from_str(&env, "Test"),
+            description: String::from_str(&env, "Desc"),
+            milestone_amount: 500,
             owner: owner.clone(),
             token: token_id.clone(),
             status: GrantStatus::Active,
@@ -600,6 +621,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner: owner.clone(),
                 token,
                 status: GrantStatus::Active,
@@ -761,6 +785,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner: owner.clone(),
                 token,
                 status: GrantStatus::Completed, // Not Active
@@ -808,6 +835,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner: owner.clone(),
                 token: token_id.clone(),
                 status: GrantStatus::Active,
@@ -909,6 +939,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner: owner.clone(),
                 token,
                 status: GrantStatus::Active,
@@ -952,6 +985,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner,
                 token: token_id.clone(),
                 status: GrantStatus::Active,
@@ -1002,6 +1038,9 @@ mod tests {
         env.as_contract(&contract_id, || {
             let grant = Grant {
                 id: grant_id,
+                title: String::from_str(&env, "Test"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
                 owner,
                 token: token_id.clone(),
                 status: GrantStatus::Active,
@@ -1028,5 +1067,176 @@ mod tests {
             assert_eq!(f.funder, funder);
             assert_eq!(f.amount, 500);
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // grant_create tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_grant_create_success() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+
+        let grant_id = client.grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128, // total_amount
+            &500i128,  // milestone_amount
+            &2u32,     // num_milestones
+            &reviewers,
+        );
+
+        assert_eq!(grant_id, 1);
+        env.as_contract(&client.address, || {
+            let grant = Storage::get_grant(&env, grant_id).unwrap();
+            assert_eq!(grant.owner, owner);
+            assert_eq!(grant.title, title);
+            assert_eq!(grant.description, description);
+            assert_eq!(grant.total_amount, 1000);
+            assert_eq!(grant.milestone_amount, 500);
+            assert_eq!(grant.total_milestones, 2);
+            assert_eq!(grant.status, GrantStatus::Active);
+            assert_eq!(grant.escrow_balance, 0);
+        });
+    }
+
+    #[test]
+    fn test_grant_create_invalid_amounts() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+
+        // Zero total amount
+        let res1 = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &0i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+        );
+        assert_eq!(res1, Err(Ok(ContractError::InvalidInput.into())));
+
+        // Negative milestone amount
+        let res2 = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128,
+            &-100i128,
+            &2u32,
+            &reviewers,
+        );
+        assert_eq!(res2, Err(Ok(ContractError::InvalidInput.into())));
+    }
+
+    #[test]
+    fn test_grant_create_invalid_num_milestones() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+
+        // 0 milestones
+        let res1 = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128,
+            &500i128,
+            &0u32,
+            &reviewers,
+        );
+        assert_eq!(res1, Err(Ok(ContractError::InvalidInput.into())));
+
+        // > 100 milestones
+        let res2 = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &100000i128,
+            &100i128,
+            &101u32,
+            &reviewers,
+        );
+        assert_eq!(res2, Err(Ok(ContractError::InvalidInput.into())));
+    }
+
+    #[test]
+    fn test_grant_create_amount_mismatch() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+
+        // total < milestone_amount * num_milestones
+        // 800 < 500 * 2
+        let res = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &800i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+        );
+        assert_eq!(res, Err(Ok(ContractError::InvalidInput.into())));
+    }
+
+    #[test]
+    fn test_grant_create_unauthorized() {
+        let env = Env::default();
+        let (client, _, _) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        // No mock_all_auths()
+
+        let res = client.try_grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+        );
+        assert!(res.is_err());
     }
 }

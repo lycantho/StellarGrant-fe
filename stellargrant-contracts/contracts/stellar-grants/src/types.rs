@@ -68,9 +68,12 @@ pub struct GrantFund {
 pub struct Grant {
     pub id: u64,
     pub owner: Address,
+    pub title: String,
+    pub description: String,
     pub token: Address,
     pub status: GrantStatus,
     pub total_amount: i128,
+    pub milestone_amount: i128,
     pub reviewers: Vec<Address>,
     pub total_milestones: u32,
     pub milestones_paid_out: u32,

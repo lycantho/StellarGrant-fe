@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 mod events;
 mod storage;
 mod types;
@@ -17,6 +18,77 @@ impl StellarGrantsContract {
     /// Initialize the contract
     pub fn initialize(_env: Env) -> Result<(), ContractError> {
         Ok(())
+    }
+
+    /// Allows a grant developer/owner to create a new milestone-based grant.
+    ///
+    /// # Arguments
+    /// * `owner` - The address of the grant owner.
+    /// * `title` - The title of the grant.
+    /// * `description` - The description of the grant.
+    /// * `token` - The underlying token for funding the grant.
+    /// * `total_amount` - The total amount to be raised.
+    /// * `milestone_amount` - The payout chunk for each milestone.
+    /// * `num_milestones` - The number of milestones (up to 100).
+    /// * `reviewers` - A list of addresses authorized to approve/reject milestones.
+    ///
+    /// # Errors
+    /// * [`ContractError::InvalidInput`] – if validation of amounts or milestones fails.
+    #[allow(clippy::too_many_arguments)]
+    pub fn grant_create(
+        env: Env,
+        owner: Address,
+        title: String,
+        description: String,
+        token: Address,
+        total_amount: i128,
+        milestone_amount: i128,
+        num_milestones: u32,
+        reviewers: soroban_sdk::Vec<Address>,
+    ) -> Result<u64, ContractError> {
+        owner.require_auth();
+
+        if total_amount <= 0 || milestone_amount <= 0 {
+            return Err(ContractError::InvalidInput);
+        }
+
+        if num_milestones == 0 || num_milestones > 100 {
+            return Err(ContractError::InvalidInput);
+        }
+
+        let total_required = milestone_amount
+            .checked_mul(num_milestones as i128)
+            .ok_or(ContractError::InvalidInput)?;
+
+        if total_amount < total_required {
+            return Err(ContractError::InvalidInput);
+        }
+
+        let grant_id = Storage::increment_grant_counter(&env);
+
+        let grant = Grant {
+            id: grant_id,
+            owner: owner.clone(),
+            title: title.clone(),
+            description,
+            token,
+            status: GrantStatus::Active,
+            total_amount,
+            milestone_amount,
+            reviewers,
+            total_milestones: num_milestones,
+            milestones_paid_out: 0,
+            escrow_balance: 0,
+            funders: soroban_sdk::Vec::new(&env),
+            reason: None,
+            timestamp: env.ledger().timestamp(),
+        };
+
+        Storage::set_grant(&env, grant_id, &grant);
+
+        Events::emit_grant_created(&env, grant_id, owner, title, total_amount);
+
+        Ok(grant_id)
     }
 
     /// Register a contributor profile on-chain
