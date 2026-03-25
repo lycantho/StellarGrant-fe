@@ -18,6 +18,7 @@ pub enum ContractError {
     NoRefundableAmount = 11,
     NotAllMilestonesApproved = 12,
     AlreadyRegistered = 13,
+    MilestoneAlreadySubmitted = 14,
 }
 
 #[contracttype]

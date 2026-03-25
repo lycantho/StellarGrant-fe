@@ -319,6 +319,81 @@ impl StellarGrantsContract {
         Ok(majority_rejected)
     }
 
+    /// Allows a grant recipient to submit a completed milestone for reviewer evaluation.
+    ///
+    /// # Arguments
+    /// * `grant_id` - The unique identifier of the grant.
+    /// * `milestone_idx` - Zero-based index of the milestone to submit (must be < `total_milestones`).
+    /// * `recipient` - The address of the grant recipient submitting the milestone.
+    /// * `description` - A human-readable description of work completed for this milestone.
+    /// * `proof_url` - A URL pointing to proof of completion (e.g. GitHub PR, report link).
+    ///
+    /// # Errors
+    /// * [`ContractError::GrantNotFound`] – if no grant exists with the given `grant_id`.
+    /// * [`ContractError::InvalidState`] – if the grant is not in `Active` status.
+    /// * [`ContractError::InvalidInput`] – if `milestone_idx` is out of bounds.
+    /// * [`ContractError::Unauthorized`] – if `recipient` is not the grant owner.
+    /// * [`ContractError::MilestoneAlreadySubmitted`] – if the milestone is already submitted or approved.
+    pub fn milestone_submit(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        recipient: Address,
+        description: String,
+        proof_url: String,
+    ) -> Result<(), ContractError> {
+        recipient.require_auth();
+
+        // 1. Grant must exist
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+
+        // 2. Grant must be Active
+        if grant.status != GrantStatus::Active {
+            return Err(ContractError::InvalidState);
+        }
+
+        // 3. Milestone index must be valid
+        if milestone_idx >= grant.total_milestones {
+            return Err(ContractError::InvalidInput);
+        }
+
+        // 4. Caller must be the grant recipient (owner)
+        if grant.owner != recipient {
+            return Err(ContractError::Unauthorized);
+        }
+
+        // 5. Milestone must not already be submitted or approved
+        if let Some(existing) = Storage::get_milestone(&env, grant_id, milestone_idx) {
+            if existing.state == MilestoneState::Submitted
+                || existing.state == MilestoneState::Approved
+            {
+                return Err(ContractError::MilestoneAlreadySubmitted);
+            }
+        }
+
+        // Build and store the milestone in Submitted state
+        let milestone = Milestone {
+            idx: milestone_idx,
+            description: description.clone(),
+            amount: 0,
+            state: MilestoneState::Submitted,
+            votes: soroban_sdk::Map::new(&env),
+            approvals: 0,
+            rejections: 0,
+            reasons: soroban_sdk::Map::new(&env),
+            status_updated_at: 0,
+            proof_url: Some(proof_url),
+            submission_timestamp: env.ledger().timestamp(),
+        };
+
+        Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+
+        // Emit submission event
+        Events::emit_milestone_submitted(&env, grant_id, milestone_idx, description);
+
+        Ok(())
+    }
+
     /// Retrieve a grant by its ID
     pub fn get_grant(env: Env, grant_id: u64) -> Result<Grant, ContractError> {
         Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)

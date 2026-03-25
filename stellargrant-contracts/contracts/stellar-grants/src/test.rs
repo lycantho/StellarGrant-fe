@@ -580,4 +580,207 @@ mod tests {
             client.try_contributor_register(&contributor, &name, &bio, &skills, &github_url);
         assert_eq!(result, Err(Ok(ContractError::InvalidInput.into())));
     }
+
+    // -------------------------------------------------------------------------
+    // milestone_submit tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_milestone_submit_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 1u64;
+        let milestone_idx = 0u32;
+
+        // Set up a grant with 2 milestones so index 0 is valid
+        env.as_contract(&contract_id, || {
+            let grant = Grant {
+                id: grant_id,
+                owner: owner.clone(),
+                token,
+                status: GrantStatus::Active,
+                total_amount: 1000,
+                reviewers: Vec::new(&env),
+                total_milestones: 2,
+                milestones_paid_out: 0,
+                escrow_balance: 1000,
+                funders: Vec::new(&env),
+                reason: None,
+                timestamp: env.ledger().timestamp(),
+            };
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        let description = String::from_str(&env, "Completed smart contract implementation");
+        let proof_url = String::from_str(&env, "https://github.com/org/repo/pull/42");
+
+        client.milestone_submit(&grant_id, &milestone_idx, &owner, &description, &proof_url);
+
+        // Verify the milestone was stored correctly
+        env.as_contract(&contract_id, || {
+            let milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
+            assert_eq!(milestone.state, MilestoneState::Submitted);
+            assert_eq!(
+                milestone.description,
+                String::from_str(&env, "Completed smart contract implementation")
+            );
+            assert_eq!(
+                milestone.proof_url,
+                Some(String::from_str(
+                    &env,
+                    "https://github.com/org/repo/pull/42"
+                ))
+            );
+            assert_eq!(milestone.idx, milestone_idx);
+        });
+    }
+
+    #[test]
+    fn test_milestone_submit_grant_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, _) = setup_test(&env);
+        let recipient = Address::generate(&env);
+        let description = String::from_str(&env, "Work done");
+        let proof_url = String::from_str(&env, "https://proof.url");
+
+        let result =
+            client.try_milestone_submit(&999u64, &0u32, &recipient, &description, &proof_url);
+        assert_eq!(result, Err(Ok(ContractError::GrantNotFound.into())));
+    }
+
+    #[test]
+    fn test_milestone_submit_invalid_milestone_idx() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 1u64;
+
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token,
+            Vec::new(&env),
+        );
+
+        let description = String::from_str(&env, "Work done");
+        let proof_url = String::from_str(&env, "https://proof.url");
+
+        // The grant has total_milestones = 1, so index 1 is out of bounds
+        let result =
+            client.try_milestone_submit(&grant_id, &1u32, &owner, &description, &proof_url);
+        assert_eq!(result, Err(Ok(ContractError::InvalidInput.into())));
+    }
+
+    #[test]
+    fn test_milestone_submit_duplicate() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 1u64;
+        let milestone_idx = 0u32;
+
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token,
+            Vec::new(&env),
+        );
+        // Pre-seed the milestone as already Submitted
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        let description = String::from_str(&env, "Work done");
+        let proof_url = String::from_str(&env, "https://proof.url");
+
+        let result = client.try_milestone_submit(
+            &grant_id,
+            &milestone_idx,
+            &owner,
+            &description,
+            &proof_url,
+        );
+        assert_eq!(
+            result,
+            Err(Ok(ContractError::MilestoneAlreadySubmitted.into()))
+        );
+    }
+
+    #[test]
+    fn test_milestone_submit_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 1u64;
+
+        create_grant(&env, &contract_id, grant_id, owner, token, Vec::new(&env));
+
+        let description = String::from_str(&env, "Work done");
+        let proof_url = String::from_str(&env, "https://proof.url");
+
+        // attacker is not the grant owner
+        let result =
+            client.try_milestone_submit(&grant_id, &0u32, &attacker, &description, &proof_url);
+        assert_eq!(result, Err(Ok(ContractError::Unauthorized.into())));
+    }
+
+    #[test]
+    fn test_milestone_submit_inactive_grant() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 1u64;
+
+        env.as_contract(&contract_id, || {
+            let grant = Grant {
+                id: grant_id,
+                owner: owner.clone(),
+                token,
+                status: GrantStatus::Completed, // Not Active
+                total_amount: 1000,
+                reviewers: Vec::new(&env),
+                total_milestones: 1,
+                milestones_paid_out: 1,
+                escrow_balance: 0,
+                funders: Vec::new(&env),
+                reason: None,
+                timestamp: env.ledger().timestamp(),
+            };
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        let description = String::from_str(&env, "Work done");
+        let proof_url = String::from_str(&env, "https://proof.url");
+
+        let result =
+            client.try_milestone_submit(&grant_id, &0u32, &owner, &description, &proof_url);
+        assert_eq!(result, Err(Ok(ContractError::InvalidState.into())));
+    }
 }

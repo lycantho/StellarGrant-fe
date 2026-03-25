@@ -73,6 +73,15 @@ pub struct ContributorRegistered {
     pub timestamp: u64,
 }
 
+#[contractevent]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MilestoneSubmitted {
+    pub grant_id: u64,
+    pub milestone_idx: u32,
+    pub description: String,
+    pub timestamp: u64,
+}
+
 pub struct Events;
 
 impl Events {
@@ -122,6 +131,21 @@ impl Events {
             grant_id,
             funder,
             amount,
+        };
+        event.publish(env);
+    }
+
+    pub fn emit_milestone_submitted(
+        env: &Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        description: String,
+    ) {
+        let event = MilestoneSubmitted {
+            grant_id,
+            milestone_idx,
+            description,
+            timestamp: env.ledger().timestamp(),
         };
         event.publish(env);
     }
