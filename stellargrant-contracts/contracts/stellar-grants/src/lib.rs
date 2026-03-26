@@ -293,6 +293,7 @@ impl StellarGrantsContract {
         milestone_idx: u32,
         reviewer: Address,
         approve: bool,
+        feedback: Option<String>,
     ) -> Result<bool, ContractError> {
         reviewer.require_auth();
 
@@ -310,6 +311,13 @@ impl StellarGrantsContract {
 
         if milestone.votes.contains_key(reviewer.clone()) {
             return Err(ContractError::AlreadyVoted);
+        }
+
+        if let Some(ref fb) = feedback {
+            if fb.len() > 256 {
+                return Err(ContractError::InvalidInput);
+            }
+            milestone.reasons.set(reviewer.clone(), fb.clone());
         }
 
         let reputation = Storage::get_reviewer_reputation(&env, reviewer.clone());
@@ -351,7 +359,7 @@ impl StellarGrantsContract {
         }
 
         Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
-        Events::milestone_voted(&env, grant_id, milestone_idx, reviewer, approve);
+        Events::milestone_voted(&env, grant_id, milestone_idx, reviewer, approve, feedback);
 
         Ok(quorum_reached)
     }
@@ -365,6 +373,10 @@ impl StellarGrantsContract {
         reason: String,
     ) -> Result<bool, ContractError> {
         reviewer.require_auth();
+
+        if reason.len() > 256 {
+            return Err(ContractError::InvalidInput);
+        }
 
         let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
         let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
@@ -584,6 +596,16 @@ impl StellarGrantsContract {
 
         Storage::get_milestone(&env, grant_id, milestone_idx)
             .ok_or(ContractError::MilestoneNotFound)
+    }
+
+    /// Retrieve all reviewer feedback for a milestone
+    pub fn get_milestone_feedback(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+    ) -> Result<soroban_sdk::Map<Address, String>, ContractError> {
+        let milestone = Self::get_milestone(env, grant_id, milestone_idx)?;
+        Ok(milestone.reasons)
     }
 
     // ── Reviewer Staking (#42) ──────────────────────────────────────

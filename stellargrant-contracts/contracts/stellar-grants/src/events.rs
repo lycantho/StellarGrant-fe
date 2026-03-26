@@ -8,6 +8,7 @@ pub struct MilestoneVoted {
     pub milestone_idx: u32,
     pub reviewer: Address,
     pub approve: bool,
+    pub feedback: Option<String>,
     pub timestamp: u64,
 }
 
@@ -219,12 +220,14 @@ impl Events {
         milestone_idx: u32,
         reviewer: Address,
         approve: bool,
+        feedback: Option<String>,
     ) {
         let event = MilestoneVoted {
             grant_id,
             milestone_idx,
             reviewer,
             approve,
+            feedback,
             timestamp: env.ledger().timestamp(),
         };
         event.publish(env);

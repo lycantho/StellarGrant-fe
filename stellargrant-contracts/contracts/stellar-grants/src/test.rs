@@ -130,7 +130,7 @@ mod tests {
         );
 
         env.mock_all_auths();
-        let result = client.milestone_vote(&grant_id, &milestone_idx, &reviewer, &true);
+        let result = client.milestone_vote(&grant_id, &milestone_idx, &reviewer, &true, &None);
 
         assert_eq!(result, true); // Quorum reached (1/1)
 
@@ -1273,7 +1273,8 @@ mod tests {
 
         // Total weight = 3 + 1 = 4. Quorum margin = (4 / 2) + 1 = 3.
         // high_rep_reviewer's vote (3 weight) should pass it alone.
-        let result = client.milestone_vote(&grant_id, &milestone_idx, &high_rep_reviewer, &true);
+        let result =
+            client.milestone_vote(&grant_id, &milestone_idx, &high_rep_reviewer, &true, &None);
         assert_eq!(result, true);
 
         env.as_contract(&contract_id, || {
@@ -1361,7 +1362,8 @@ mod tests {
 
         // Total weight = 3 + 1 = 4. Quorum margin = (4 / 2) + 1 = 3.
         // low_rep_reviewer's vote (1 weight) should not reach quorum alone.
-        let result = client.milestone_vote(&grant_id, &milestone_idx, &low_rep_reviewer, &true);
+        let result =
+            client.milestone_vote(&grant_id, &milestone_idx, &low_rep_reviewer, &true, &None);
         assert_eq!(result, false);
 
         env.as_contract(&contract_id, || {
@@ -1408,9 +1410,21 @@ mod tests {
 
         // Total weight = 3. Quorum = 2.
         // Dissenting votes false first.
-        client.milestone_vote(&grant_id, &milestone_idx, &reviewer_dissenting, &false);
+        client.milestone_vote(
+            &grant_id,
+            &milestone_idx,
+            &reviewer_dissenting,
+            &false,
+            &None,
+        );
         // Harmonious votes true, reaching quorum 2.
-        let result = client.milestone_vote(&grant_id, &milestone_idx, &reviewer_harmonious, &true);
+        let result = client.milestone_vote(
+            &grant_id,
+            &milestone_idx,
+            &reviewer_harmonious,
+            &true,
+            &None,
+        );
         assert_eq!(result, true);
 
         env.as_contract(&contract_id, || {
@@ -1423,5 +1437,80 @@ mod tests {
                 1
             ); // Stayed 1
         });
+    }
+
+    #[test]
+    fn test_milestone_feedback_success() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let milestone_idx = 0;
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewer = Address::generate(&env);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, owner, token, reviewers);
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        env.mock_all_auths();
+        let feedback = Some(String::from_str(&env, "Great job!"));
+        client.milestone_vote(&grant_id, &milestone_idx, &reviewer, &true, &feedback);
+
+        let all_feedback = client.get_milestone_feedback(&grant_id, &milestone_idx);
+        assert_eq!(
+            all_feedback.get(reviewer).unwrap(),
+            String::from_str(&env, "Great job!")
+        );
+    }
+
+    #[test]
+    fn test_milestone_feedback_length_limit() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1;
+        let milestone_idx = 0;
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewer = Address::generate(&env);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, owner, token, reviewers);
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        env.mock_all_auths();
+
+        // Build a string of 257 characters
+        let mut long_text = [0u8; 257];
+        for i in 0..257 {
+            long_text[i] = b'A';
+        }
+        let too_long_feedback = Some(String::from_str(
+            &env,
+            core::str::from_utf8(&long_text).unwrap(),
+        ));
+
+        let result = client.try_milestone_vote(
+            &grant_id,
+            &milestone_idx,
+            &reviewer,
+            &true,
+            &too_long_feedback,
+        );
+        assert_eq!(result, Err(Ok(ContractError::InvalidInput.into())));
     }
 }
