@@ -66,6 +66,48 @@ impl StellarGrantsContract {
     /// Allows a grant developer/owner to create a new milestone-based grant.
     ///
     /// # Arguments
+    /// * `grant_id` - Grant identifier to update.
+    /// * `owner` - Grant owner requesting update.
+    /// * `new_title` - New grant title.
+    /// * `new_description` - New grant description.
+    ///
+    /// # Returns
+    /// * `Ok(())` on success.
+    ///
+    /// # Errors
+    /// * [`ContractError::GrantNotFound`], [`ContractError::Unauthorized`], [`ContractError::InvalidState`].
+    ///
+    /// # Side Effects
+    /// * Updates grant title and description in storage.
+    /// * Emits `GrantMetadataUpdated` event.
+    pub fn grant_update_metadata(
+        env: Env,
+        grant_id: u64,
+        owner: Address,
+        new_title: String,
+        new_description: String,
+    ) -> Result<(), ContractError> {
+        owner.require_auth();
+
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        if grant.owner != owner {
+            return Err(ContractError::Unauthorized);
+        }
+        if grant.status != GrantStatus::Active {
+            return Err(ContractError::InvalidState);
+        }
+
+        grant.title = new_title.clone();
+        grant.description = new_description.clone();
+        Storage::set_grant(&env, grant_id, &grant);
+
+        Events::emit_grant_metadata_updated(&env, grant_id, owner, new_title, new_description);
+        Ok(())
+    }
+
+    /// Allows a grant developer/owner to create a new milestone-based grant.
+    ///
+    /// # Arguments
     /// * `owner` - The address of the grant owner.
     /// * `title` - The title of the grant.
     /// * `description` - The description of the grant.

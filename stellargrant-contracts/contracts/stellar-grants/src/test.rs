@@ -1943,6 +1943,79 @@ mod tests {
     }
 
     #[test]
+    fn test_grant_update_metadata_success() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1u64;
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+        let created = client.grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+        );
+        assert_eq!(created, 1);
+
+        let new_title = String::from_str(&env, "Updated Grant");
+        let new_description = String::from_str(&env, "Updated description");
+
+        client.grant_update_metadata(&grant_id, &owner, &new_title, &new_description);
+
+        env.as_contract(&contract_id, || {
+            let grant = Storage::get_grant(&env, grant_id).unwrap();
+            assert_eq!(grant.title, new_title);
+            assert_eq!(grant.description, new_description);
+        });
+    }
+
+    #[test]
+    fn test_grant_update_metadata_non_active_fails() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_test(&env);
+        let grant_id = 1u64;
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let reviewers = Vec::new(&env);
+        let title = String::from_str(&env, "New Grant");
+        let description = String::from_str(&env, "Some desc");
+
+        env.mock_all_auths();
+        client.grant_create(
+            &owner,
+            &title,
+            &description,
+            &token,
+            &1000i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+        );
+
+        env.as_contract(&contract_id, || {
+            let mut grant = Storage::get_grant(&env, grant_id).unwrap();
+            grant.status = GrantStatus::Cancelled;
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        let new_title = String::from_str(&env, "Updated grant");
+        let new_description = String::from_str(&env, "Updated desc");
+
+        let result =
+            client.try_grant_update_metadata(&grant_id, &owner, &new_title, &new_description);
+        assert_eq!(result, Err(Ok(ContractError::InvalidState.into())));
+    }
+
+    #[test]
     fn test_reputation_weighted_quorum() {
         let env = Env::default();
         let (client, _, contract_id) = setup_test(&env);
