@@ -964,7 +964,6 @@ impl StellarGrantsContract {
 
         let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
-
         if grant.status != GrantStatus::Active {
             return Err(ContractError::InvalidState);
         }
@@ -1326,7 +1325,6 @@ fn apply_milestone_submission(
 
     Ok(())
 }
-
 
 fn ensure_min_reputation_for_grant(
     env: &Env,

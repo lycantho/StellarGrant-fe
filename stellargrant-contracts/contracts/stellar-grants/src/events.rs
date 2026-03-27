@@ -369,4 +369,3 @@ pub struct MilestoneExpired {
     pub milestone_idx: u32,
     pub timestamp: u64,
 }
-
