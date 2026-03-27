@@ -658,7 +658,14 @@ impl StellarGrantsContract {
             return Err(ContractError::Unauthorized);
         }
 
-        apply_milestone_submission(&env, grant_id, &grant, milestone_idx, description, proof_url)
+        apply_milestone_submission(
+            &env,
+            grant_id,
+            &grant,
+            milestone_idx,
+            description,
+            proof_url,
+        )
     }
 
     /// Submits multiple milestones in one transaction.
@@ -1006,7 +1013,8 @@ fn apply_milestone_submission(
     }
 
     if let Some(existing) = Storage::get_milestone(env, grant_id, milestone_idx) {
-        if existing.state == MilestoneState::Submitted || existing.state == MilestoneState::Approved {
+        if existing.state == MilestoneState::Submitted || existing.state == MilestoneState::Approved
+        {
             return Err(ContractError::MilestoneAlreadySubmitted);
         }
     }

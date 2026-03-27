@@ -2,7 +2,8 @@
 mod tests {
     use crate::storage::Storage;
     use crate::types::{
-        ContractError, Grant, GrantFund, GrantStatus, Milestone, MilestoneState, MilestoneSubmission,
+        ContractError, Grant, GrantFund, GrantStatus, Milestone, MilestoneState,
+        MilestoneSubmission,
     };
     use crate::StellarGrantsContract;
     use crate::StellarGrantsContractClient;
