@@ -4526,18 +4526,25 @@ mod tests {
         let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
         let token_id = token_contract.address();
         let token_admin = token::StellarAssetClient::new(&env, &token_id);
-        
+
         let owner = Address::generate(&env);
         let reviewer = Address::generate(&env);
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
-        
+
         token_admin.mint(&contract_id, &1000);
 
         let grant_id = 1;
-        create_grant(&env, &contract_id, grant_id, owner.clone(), token_id.clone(), reviewers);
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token_id.clone(),
+            reviewers,
+        );
         create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Submitted);
-        
+
         env.as_contract(&contract_id, || {
             let mut milestone = Storage::get_milestone(&env, grant_id, 0).unwrap();
             milestone.approvals = 1;
@@ -4550,7 +4557,7 @@ mod tests {
         let token_client = token::Client::new(&env, &token_id);
         assert_eq!(token_client.balance(&owner), 100);
         assert_eq!(token_client.balance(&contract_id), 900);
-        
+
         env.as_contract(&contract_id, || {
             let milestone = Storage::get_milestone(&env, grant_id, 0).unwrap();
             assert_eq!(milestone.state, MilestoneState::Approved);
@@ -4567,16 +4574,23 @@ mod tests {
         let (client, admin, contract_id) = setup_test(&env);
         let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
         let token_id = token_contract.address();
-        
+
         let owner = Address::generate(&env);
         let reviewer = Address::generate(&env);
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
-        
+
         let grant_id = 1;
-        create_grant(&env, &contract_id, grant_id, owner.clone(), token_id.clone(), reviewers);
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token_id.clone(),
+            reviewers,
+        );
         create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Submitted);
-        
+
         let res = client.try_milestone_approve(&grant_id, &0);
         assert_eq!(res, Err(Ok(ContractError::QuorumNotReached.into())));
     }
@@ -4588,16 +4602,23 @@ mod tests {
         let (client, admin, contract_id) = setup_test(&env);
         let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
         let token_id = token_contract.address();
-        
+
         let owner = Address::generate(&env);
         let reviewer = Address::generate(&env);
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
-        
+
         let grant_id = 1;
-        create_grant(&env, &contract_id, grant_id, owner.clone(), token_id.clone(), reviewers);
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token_id.clone(),
+            reviewers,
+        );
         create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Approved);
-        
+
         let res = client.try_milestone_approve(&grant_id, &0);
         assert_eq!(res, Err(Ok(ContractError::MilestoneAlreadyApproved.into())));
     }
@@ -4609,23 +4630,30 @@ mod tests {
         let (client, admin, contract_id) = setup_test(&env);
         let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
         let token_id = token_contract.address();
-        
+
         let owner = Address::generate(&env);
         let reviewer = Address::generate(&env);
         let mut reviewers = Vec::new(&env);
         reviewers.push_back(reviewer.clone());
-        
+
         let grant_id = 1;
-        create_grant(&env, &contract_id, grant_id, owner.clone(), token_id.clone(), reviewers);
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token_id.clone(),
+            reviewers,
+        );
         create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Submitted);
-        
+
         env.as_contract(&contract_id, || {
             let mut milestone = Storage::get_milestone(&env, grant_id, 0).unwrap();
             milestone.approvals = 1;
             Storage::set_milestone(&env, grant_id, 0, &milestone);
-            
+
             let mut grant = Storage::get_grant(&env, grant_id).unwrap();
-            grant.escrow_balance = 50; 
+            grant.escrow_balance = 50;
             Storage::set_grant(&env, grant_id, &grant);
         });
 

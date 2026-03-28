@@ -94,22 +94,21 @@ impl StellarGrantsContract {
         // State Update
         milestone.state = MilestoneState::Approved;
         milestone.status_updated_at = env.ledger().timestamp();
-        
+
         let recipient = grant.owner.clone();
 
         // Payout Execution & balance deduction
-        grant.escrow_balance = grant.escrow_balance.checked_sub(amount).ok_or(ContractError::InsufficientBalance)?;
+        grant.escrow_balance = grant
+            .escrow_balance
+            .checked_sub(amount)
+            .ok_or(ContractError::InsufficientBalance)?;
         grant.milestones_paid_out += 1;
 
         Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
         Storage::set_grant(&env, grant_id, &grant);
 
         let token_client = token::Client::new(&env, &grant.token);
-        token_client.transfer(
-            &env.current_contract_address(),
-            &recipient,
-            &amount,
-        );
+        token_client.transfer(&env.current_contract_address(), &recipient, &amount);
 
         // Events
         Events::emit_milestone_approved(&env, grant_id, milestone_idx, amount, recipient.clone());

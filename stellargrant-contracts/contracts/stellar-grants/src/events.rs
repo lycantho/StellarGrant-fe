@@ -536,12 +536,7 @@ impl Events {
         event.publish(env);
     }
 
-    pub fn emit_payout_executed(
-        env: &Env,
-        grant_id: u64,
-        recipient: Address,
-        amount: i128,
-    ) {
+    pub fn emit_payout_executed(env: &Env, grant_id: u64, recipient: Address, amount: i128) {
         let event = PayoutExecuted {
             event_version: EVENT_VERSION,
             grant_id,
