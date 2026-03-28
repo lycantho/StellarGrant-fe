@@ -33,6 +33,122 @@ pub struct StellarGrantsContract;
 
 #[contractimpl]
 impl StellarGrantsContract {
+    /// Initiate a dispute on a milestone. Callable by grant owner, reviewers, or contributor.
+    pub fn dispute_milestone(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        caller: Address,
+    ) -> Result<(), ContractError> {
+        caller.require_auth();
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
+            .ok_or(ContractError::MilestoneNotFound)?;
+        // Only grant owner, reviewers, or contributor can dispute
+        let is_reviewer = grant.reviewers.contains(caller.clone());
+        let is_owner = grant.owner == caller;
+        // For now, assume contributor is grant.owner (can be extended)
+        if !(is_owner || is_reviewer) {
+            return Err(ContractError::Unauthorized);
+        }
+        if milestone.state != MilestoneState::Submitted
+            && milestone.state != MilestoneState::Approved
+        {
+            return Err(ContractError::InvalidState);
+        }
+        milestone.state = MilestoneState::Disputed;
+        milestone.status_updated_at = env.ledger().timestamp();
+        Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+        Events::milestone_status_changed(&env, grant_id, milestone_idx, MilestoneState::Disputed);
+        Ok(())
+    }
+
+    /// Committee resolves a disputed milestone. Only callable by council.
+    pub fn resolve_dispute(
+        env: Env,
+        council: Address,
+        grant_id: u64,
+        milestone_idx: u32,
+        approve: bool,
+    ) -> Result<(), ContractError> {
+        council.require_auth();
+        let council_addr = Storage::get_council(&env).ok_or(ContractError::InvalidInput)?;
+        if council_addr != council {
+            return Err(ContractError::Unauthorized);
+        }
+        let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
+            .ok_or(ContractError::MilestoneNotFound)?;
+        if milestone.state != MilestoneState::Disputed {
+            return Err(ContractError::InvalidState);
+        }
+        milestone.state = MilestoneState::Resolved;
+        milestone.status_updated_at = env.ledger().timestamp();
+        Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+        Events::milestone_status_changed(&env, grant_id, milestone_idx, MilestoneState::Resolved);
+
+        // Fetch grant for payout/refund
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        let token_client = token::Client::new(&env, &grant.token);
+        if approve {
+            // Approve: payout milestone amount to grant owner (contributor)
+            if grant.escrow_balance < grant.milestone_amount {
+                return Err(ContractError::InvalidInput);
+            }
+            token_client.transfer(
+                &env.current_contract_address(),
+                &grant.owner,
+                &grant.milestone_amount,
+            );
+            grant.escrow_balance -= grant.milestone_amount;
+            grant.milestones_paid_out += 1;
+            Storage::set_grant(&env, grant_id, &grant);
+            Events::emit_milestone_paid(&env, grant_id, milestone_idx, grant.milestone_amount);
+        } else {
+            // Reject: refund milestone amount to funders (pro-rata)
+            let total_refundable = grant.milestone_amount;
+            let mut total_contributions: i128 = 0;
+            for fund_entry in grant.funders.iter() {
+                total_contributions += fund_entry.amount;
+            }
+            if total_contributions <= 0 {
+                return Err(ContractError::InvalidInput);
+            }
+            let funders_len = grant.funders.len();
+            let mut distributed = 0i128;
+            for i in 0..funders_len {
+                let fund_entry = grant.funders.get(i).unwrap();
+                let is_last = i + 1 == funders_len;
+                let refund_amount = if is_last {
+                    total_refundable - distributed
+                } else {
+                    let amount = fund_entry
+                        .amount
+                        .checked_mul(total_refundable)
+                        .ok_or(ContractError::InvalidInput)?
+                        .checked_div(total_contributions)
+                        .ok_or(ContractError::InvalidInput)?;
+                    distributed += amount;
+                    amount
+                };
+                if refund_amount > 0 {
+                    token_client.transfer(
+                        &env.current_contract_address(),
+                        &fund_entry.funder,
+                        &refund_amount,
+                    );
+                    Events::emit_refund_issued(
+                        &env,
+                        grant_id,
+                        fund_entry.funder.clone(),
+                        refund_amount,
+                    );
+                }
+            }
+            grant.escrow_balance -= total_refundable;
+            Storage::set_grant(&env, grant_id, &grant);
+        }
+        Ok(())
+    }
     /// Initialize the contract with a council address for dispute resolution.
     ///
     /// # Arguments
@@ -848,6 +964,9 @@ impl StellarGrantsContract {
             milestone.state = MilestoneState::Submitted;
         } else if milestone.state != MilestoneState::Submitted {
             return Err(ContractError::MilestoneNotSubmitted);
+        }
+        if milestone.state == MilestoneState::Disputed {
+            return Err(ContractError::InvalidState);
         }
 
         if !grant.reviewers.contains(reviewer.clone()) {

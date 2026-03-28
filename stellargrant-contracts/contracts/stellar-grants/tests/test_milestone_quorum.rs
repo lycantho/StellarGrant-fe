@@ -1,9 +1,7 @@
 use soroban_sdk::{
-    testutils::{Address as TestAddress, Ledger as _},
+    testutils::{Address as TestAddress, Ledger},
     Address, Env, String, Vec,
-};
-use stellar_grants::{
-    MilestoneState, StellarGrantsContractClient, Storage, COMMUNITY_REVIEW_PERIOD,
+    testutils::Address as TestAddress, testutils::Ledger, Address, Env, String, Vec,
 };
 
 #[test]
@@ -44,6 +42,11 @@ fn test_milestone_voting_quorum_and_events() {
         &String::from_str(&env, "desc"),
         &String::from_str(&env, "proof"),
     );
+    // Advance ledger timestamp by COMMUNITY_REVIEW_PERIOD to allow voting
+    const COMMUNITY_REVIEW_PERIOD: u64 = 3 * 24 * 60 * 60;
+    let now = env.ledger().timestamp();
+    env.ledger()
+        .set_timestamp(now + COMMUNITY_REVIEW_PERIOD + 1);
 
     // Advance past the community review period so reviewer voting is allowed
     env.ledger().set_timestamp(COMMUNITY_REVIEW_PERIOD + 1);
@@ -51,8 +54,7 @@ fn test_milestone_voting_quorum_and_events() {
     // Reviewer 1 votes approve
     let res1 = client.milestone_vote(&grant_id, &0, &reviewers.get(0).unwrap(), &true, &None);
     assert_eq!(res1, false); // Quorum not reached yet
-
-    // Reviewer 2 votes approve (should reach quorum)
+                             // Reviewer 2 votes approve (should reach quorum)
     let res2 = client.milestone_vote(&grant_id, &0, &reviewers.get(1).unwrap(), &true, &None);
     assert_eq!(res2, true); // Quorum reached
 
@@ -101,8 +103,15 @@ fn test_milestone_vote_after_quorum_panics() {
         &String::from_str(&env, "desc"),
         &String::from_str(&env, "proof"),
     );
-    // Advance past the community review period so reviewer voting is allowed
-    env.ledger().set_timestamp(COMMUNITY_REVIEW_PERIOD + 1);
+    // Advance ledger timestamp by COMMUNITY_REVIEW_PERIOD to allow voting
+    const COMMUNITY_REVIEW_PERIOD: u64 = 3 * 24 * 60 * 60;
+    let now = env.ledger().timestamp();
+    env.ledger()
+        .set_timestamp(now + COMMUNITY_REVIEW_PERIOD + 1);
+
+    // Advance past community review period (3 days)
+    env.ledger().set_timestamp(3 * 24 * 60 * 60 + 1);
+
     let _ = client.milestone_vote(&grant_id, &0, &reviewers.get(0).unwrap(), &true, &None);
     let _ = client.milestone_vote(&grant_id, &0, &reviewers.get(1).unwrap(), &true, &None);
     // This vote should panic (milestone already approved — MilestoneNotSubmitted #7)
