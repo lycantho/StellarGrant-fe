@@ -76,7 +76,7 @@ pub enum MilestoneState {
     Disputed = 5,
     Resolved = 6,
     /// Open for community upvotes / comments before reviewer voting begins.
-    CommunityReview = 6,
+    CommunityReview = 7,
 }
 
 #[contracttype]
