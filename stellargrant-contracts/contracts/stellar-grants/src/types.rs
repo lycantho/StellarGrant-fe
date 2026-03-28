@@ -36,6 +36,8 @@ pub enum ContractError {
     AlreadyUpvoted = 27,
     /// Grant cancellation is pending; grace period has not elapsed yet.
     CancellationGracePeriod = 28,
+    HeartbeatMissed = 29,
+    Blacklisted = 30,
 }
 
 #[contracttype]
@@ -117,6 +119,7 @@ pub enum GrantStatus {
     Completed = 3,
     /// Cancellation requested but grace period has not elapsed yet.
     CancellationPending = 4,
+    Inactive = 5,
 }
 
 #[contracttype]
@@ -147,6 +150,7 @@ pub struct Grant {
     pub timestamp: u64,
     /// Timestamp when a cancellation was first requested (grace-period cancellation).
     pub cancellation_requested_at: Option<u64>,
+    pub last_heartbeat: u64,
 }
 
 #[contracttype]

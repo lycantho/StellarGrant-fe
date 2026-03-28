@@ -24,6 +24,7 @@ pub enum DataKey {
     GrantMinReputation(u64),
     /// Tracks whether a voter has already upvoted a specific milestone.
     MilestoneUpvoter(u64, u32, soroban_sdk::Address),
+    Blacklist(soroban_sdk::Address),
 }
 
 pub struct Storage;
@@ -269,5 +270,23 @@ impl Storage {
             &DataKey::MilestoneUpvoter(grant_id, milestone_idx, voter.clone()),
             &true,
         );
+    }
+
+    pub fn is_blacklisted(env: &Env, address: &soroban_sdk::Address) -> bool {
+        env.storage()
+            .persistent()
+            .has(&DataKey::Blacklist(address.clone()))
+    }
+
+    pub fn set_blacklisted(env: &Env, address: &soroban_sdk::Address) {
+        env.storage()
+            .persistent()
+            .set(&DataKey::Blacklist(address.clone()), &true);
+    }
+
+    pub fn remove_blacklisted(env: &Env, address: &soroban_sdk::Address) {
+        env.storage()
+            .persistent()
+            .remove(&DataKey::Blacklist(address.clone()));
     }
 }

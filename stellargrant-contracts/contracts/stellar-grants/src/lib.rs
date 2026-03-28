@@ -229,6 +229,9 @@ impl StellarGrantsContract {
         if grant.owner != owner {
             return Err(ContractError::Unauthorized);
         }
+        if grant.status == GrantStatus::Inactive {
+            return Err(ContractError::HeartbeatMissed);
+        }
         if grant.status != GrantStatus::Active {
             return Err(ContractError::InvalidState);
         }
@@ -270,6 +273,10 @@ impl StellarGrantsContract {
         milestone_deadlines: Option<soroban_sdk::Vec<u64>>,
     ) -> Result<u64, ContractError> {
         owner.require_auth();
+
+        if Storage::is_blacklisted(&env, &owner) {
+            return Err(ContractError::Blacklisted);
+        }
 
         if let Some(ref deadlines) = milestone_deadlines {
             if deadlines.len() != num_milestones {
@@ -316,6 +323,7 @@ impl StellarGrantsContract {
             funders: soroban_sdk::Vec::new(&env),
             reason: None,
             timestamp: env.ledger().timestamp(),
+            last_heartbeat: env.ledger().timestamp(),
             cancellation_requested_at: None,
         };
 
@@ -471,6 +479,10 @@ impl StellarGrantsContract {
     ) -> Result<(), ContractError> {
         contributor.require_auth();
 
+        if Storage::is_blacklisted(&env, &contributor) {
+            return Err(ContractError::Blacklisted);
+        }
+
         if name.is_empty() || name.len() > 100 {
             return Err(ContractError::InvalidInput);
         }
@@ -531,7 +543,18 @@ impl StellarGrantsContract {
 
             let caller_is_owner = grant.owner == caller;
             let caller_is_admin = Storage::get_global_admin(&env) == Some(caller.clone());
-            if !caller_is_owner && !caller_is_admin {
+            let grant_is_inactive = grant.status == GrantStatus::Inactive;
+            let caller_is_funder = grant.funders.iter().any(|f| f.funder == caller);
+
+            let now = env.ledger().timestamp();
+            let heartbeat_age = now.saturating_sub(grant.last_heartbeat);
+            let heartbeat_timeout_60d = heartbeat_age > 60 * 24 * 60 * 60;
+
+            if !(caller_is_admin
+                || caller_is_owner
+                || heartbeat_timeout_60d
+                || (grant_is_inactive && caller_is_funder))
+            {
                 return Err(ContractError::Unauthorized);
             }
 
@@ -653,6 +676,13 @@ impl StellarGrantsContract {
         reentrancy::with_non_reentrant(&env, || {
             let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
+
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
             if grant.status != GrantStatus::Active {
                 return Err(ContractError::InvalidState);
             }
@@ -700,6 +730,14 @@ impl StellarGrantsContract {
         signer.require_auth();
         reentrancy::with_non_reentrant(&env, || {
             let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
+
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
             if grant.status != GrantStatus::Active {
                 return Err(ContractError::InvalidState);
             }
@@ -764,6 +802,9 @@ impl StellarGrantsContract {
 
     fn finalize_grant_release(env: &Env, grant_id: u64) -> Result<(), ContractError> {
         let mut grant = Storage::get_grant(env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        if grant.status == GrantStatus::Inactive {
+            return Err(ContractError::HeartbeatMissed);
+        }
         if grant.status != GrantStatus::Active {
             return Err(ContractError::InvalidState);
         }
@@ -873,6 +914,8 @@ impl StellarGrantsContract {
         escrow_state.quorum_ready = true;
         Storage::set_escrow_state(env, grant_id, &escrow_state);
 
+        Events::emit_payee_receipt(env, grant_id, grant.owner.clone(), total_paid);
+
         Events::emit_grant_completed(env, grant_id, total_paid, remaining_balance);
         Ok(())
     }
@@ -890,6 +933,10 @@ impl StellarGrantsContract {
         feedback: Option<String>,
     ) -> Result<bool, ContractError> {
         reviewer.require_auth();
+
+        if Storage::is_blacklisted(&env, &reviewer) {
+            return Err(ContractError::Blacklisted);
+        }
 
         let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
         let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
@@ -1131,8 +1178,13 @@ impl StellarGrantsContract {
     ) -> Result<(), ContractError> {
         recipient.require_auth();
 
-        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+        check_heartbeat(&env, &mut grant);
+
+        if grant.status == GrantStatus::Inactive {
+            return Err(ContractError::HeartbeatMissed);
+        }
         if grant.status != GrantStatus::Active {
             return Err(ContractError::InvalidState);
         }
@@ -1177,6 +1229,9 @@ impl StellarGrantsContract {
 
         let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+        if grant.status == GrantStatus::Inactive {
+            return Err(ContractError::HeartbeatMissed);
+        }
         if grant.status != GrantStatus::Active {
             return Err(ContractError::InvalidState);
         }
@@ -1217,6 +1272,7 @@ impl StellarGrantsContract {
         grant_id: u64,
         funder: Address,
         amount: i128,
+        memo: Option<String>,
     ) -> Result<(), ContractError> {
         funder.require_auth();
         reentrancy::with_non_reentrant(&env, || {
@@ -1227,6 +1283,11 @@ impl StellarGrantsContract {
             let mut grant =
                 Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+            check_heartbeat(&env, &mut grant);
+
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
             if grant.status != GrantStatus::Active {
                 return Err(ContractError::InvalidState);
             }
@@ -1266,7 +1327,8 @@ impl StellarGrantsContract {
 
             Storage::set_grant(&env, grant_id, &grant);
 
-            Events::emit_grant_funded(&env, grant_id, funder, amount, grant.escrow_balance);
+            Events::emit_grant_funded(&env, grant_id, funder.clone(), amount, grant.escrow_balance);
+            Events::emit_payer_receipt(&env, grant_id, funder, amount, memo);
 
             Ok(())
         })
@@ -1517,6 +1579,9 @@ impl StellarGrantsContract {
 
         reentrancy::with_non_reentrant(&env, || {
             let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+            if grant.status == GrantStatus::Inactive {
+                return Err(ContractError::HeartbeatMissed);
+            }
             if grant.status != GrantStatus::Active {
                 return Err(ContractError::InvalidState);
             }
@@ -1633,6 +1698,11 @@ impl StellarGrantsContract {
                 let mut grant =
                     Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+                check_heartbeat(&env, &mut grant);
+
+                if grant.status == GrantStatus::Inactive {
+                    return Err(ContractError::HeartbeatMissed);
+                }
                 if grant.status != GrantStatus::Active {
                     return Err(ContractError::InvalidState);
                 }
@@ -1676,10 +1746,89 @@ impl StellarGrantsContract {
                     amount,
                     grant.escrow_balance,
                 );
+                Events::emit_payer_receipt(&env, grant_id, funder.clone(), amount, None);
             }
 
             Ok(())
         })
+    }
+
+    /// Update the grant's heartbeat to the current ledger timestamp.
+    /// Can only be called by the grant owner while the grant is Active or Inactive.
+    /// If the grant was Inactive, it will be restored to Active.
+    pub fn grant_ping(env: Env, grant_id: u64, owner: Address) -> Result<(), ContractError> {
+        owner.require_auth();
+
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        if grant.owner != owner {
+            return Err(ContractError::Unauthorized);
+        }
+
+        // Grant must be in a state where pinging makes sense
+        if grant.status != GrantStatus::Active && grant.status != GrantStatus::Inactive {
+            return Err(ContractError::InvalidState);
+        }
+
+        let now = env.ledger().timestamp();
+        grant.last_heartbeat = now;
+
+        // If it was inactive, restore it to active
+        if grant.status == GrantStatus::Inactive {
+            grant.status = GrantStatus::Active;
+        }
+
+        Storage::set_grant(&env, grant_id, &grant);
+        Events::emit_heartbeat_updated(&env, grant_id, now);
+
+        Ok(())
+    }
+
+    /// Admin function to blacklist an address from creating or interacting with grants.
+    pub fn admin_blacklist_add(
+        env: Env,
+        admin: Address,
+        target: Address,
+    ) -> Result<(), ContractError> {
+        admin.require_auth();
+        let global_admin = Storage::get_global_admin(&env).ok_or(ContractError::Unauthorized)?;
+        if admin != global_admin {
+            return Err(ContractError::Unauthorized);
+        }
+
+        Storage::set_blacklisted(&env, &target);
+        Ok(())
+    }
+
+    /// Admin function to remove an address from the blacklist.
+    pub fn admin_blacklist_remove(
+        env: Env,
+        admin: Address,
+        target: Address,
+    ) -> Result<(), ContractError> {
+        admin.require_auth();
+        let global_admin = Storage::get_global_admin(&env).ok_or(ContractError::Unauthorized)?;
+        if admin != global_admin {
+            return Err(ContractError::Unauthorized);
+        }
+
+        Storage::remove_blacklisted(&env, &target);
+        Ok(())
+    }
+}
+
+fn check_heartbeat(env: &Env, grant: &mut Grant) {
+    if grant.status != GrantStatus::Active {
+        return;
+    }
+
+    let now = env.ledger().timestamp();
+    let seconds_since_heartbeat = now.saturating_sub(grant.last_heartbeat);
+
+    // 30 days = 30 * 24 * 60 * 60 = 2,592,000 seconds
+    if seconds_since_heartbeat > 30 * 24 * 60 * 60 {
+        grant.status = GrantStatus::Inactive;
+        Storage::set_grant(env, grant.id, grant);
+        Events::emit_grant_gone_inactive(env, grant.id, now);
     }
 }
 
@@ -1691,6 +1840,14 @@ fn apply_milestone_submission(
     description: String,
     proof_url: String,
 ) -> Result<(), ContractError> {
+    if Storage::is_blacklisted(env, &grant.owner) {
+        return Err(ContractError::Blacklisted);
+    }
+
+    if grant.status == GrantStatus::Inactive {
+        return Err(ContractError::HeartbeatMissed);
+    }
+
     if milestone_idx >= grant.total_milestones {
         return Err(ContractError::InvalidInput);
     }
