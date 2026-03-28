@@ -334,6 +334,7 @@ impl StellarGrantsContract {
         };
 
         Storage::set_grant(&env, grant_id, &grant);
+        Storage::index_add(&env, initial_status as u32, grant_id);
         Storage::set_grant_min_reputation(&env, grant_id, 0);
         Storage::set_escrow_state(
             &env,
@@ -588,6 +589,12 @@ impl StellarGrantsContract {
                         grant.cancellation_requested_at = Some(env.ledger().timestamp());
                         grant.reason = Some(reason.clone());
                         Storage::set_grant(&env, grant_id, &grant);
+                        Storage::index_transition(
+                            &env,
+                            GrantStatus::Active as u32,
+                            GrantStatus::CancellationPending as u32,
+                            grant_id,
+                        );
                         Events::emit_grant_cancellation_requested(
                             &env,
                             grant_id,
@@ -671,6 +678,10 @@ impl StellarGrantsContract {
             grant.timestamp = env.ledger().timestamp();
 
             Storage::set_grant(&env, grant_id, &grant);
+            // The grant was either Active or CancellationPending before this point
+            Storage::index_remove(&env, GrantStatus::Active as u32, grant_id);
+            Storage::index_remove(&env, GrantStatus::CancellationPending as u32, grant_id);
+            Storage::index_add(&env, GrantStatus::Cancelled as u32, grant_id);
 
             // Emit cancellation event
             Events::emit_grant_cancelled(&env, grant_id, caller, reason, total_refundable);
@@ -895,6 +906,12 @@ impl StellarGrantsContract {
         grant.milestones_paid_out = grant.total_milestones;
         grant.timestamp = env.ledger().timestamp();
         Storage::set_grant(env, grant_id, &grant);
+        Storage::index_transition(
+            env,
+            GrantStatus::Active as u32,
+            GrantStatus::Completed as u32,
+            grant_id,
+        );
 
         if total_paid > 0 {
             if let Some(mut profile) = Storage::get_contributor(env, grant.owner.clone()) {
@@ -1342,6 +1359,12 @@ impl StellarGrantsContract {
                 && grant.escrow_balance >= grant.min_funding
             {
                 grant.status = GrantStatus::Active;
+                Storage::index_transition(
+                    &env,
+                    GrantStatus::PendingFunding as u32,
+                    GrantStatus::Active as u32,
+                    grant_id,
+                );
                 Events::emit_grant_activated(&env, grant.id);
             }
 
@@ -1553,6 +1576,12 @@ impl StellarGrantsContract {
 
         grant.status = GrantStatus::Paused;
         Storage::set_grant(&env, grant_id, &grant);
+        Storage::index_transition(
+            &env,
+            GrantStatus::Active as u32,
+            GrantStatus::Paused as u32,
+            grant_id,
+        );
         Events::emit_grant_paused(&env, grant_id, caller);
         Ok(())
     }
@@ -1574,6 +1603,12 @@ impl StellarGrantsContract {
 
         grant.status = GrantStatus::Active;
         Storage::set_grant(&env, grant_id, &grant);
+        Storage::index_transition(
+            &env,
+            GrantStatus::Paused as u32,
+            GrantStatus::Active as u32,
+            grant_id,
+        );
         Events::emit_grant_resumed(&env, grant_id, caller);
         Ok(())
     }
@@ -1581,6 +1616,35 @@ impl StellarGrantsContract {
     /// Retrieve a grant by its ID
     pub fn get_grant(env: Env, grant_id: u64) -> Result<Grant, ContractError> {
         Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)
+    }
+
+    /// Return a paginated list of grant IDs that currently hold `status`.
+    ///
+    /// `page` is zero-based; `page_size` is capped at 50 to bound gas costs.
+    /// Returns an empty vec when the page is out of range.
+    pub fn get_grants_by_status(
+        env: Env,
+        status: GrantStatus,
+        page: u32,
+        page_size: u32,
+    ) -> Vec<u64> {
+        let page_size = if page_size == 0 || page_size > 50 {
+            50
+        } else {
+            page_size
+        };
+        let ids = Storage::get_status_index(&env, status as u32);
+        let total = ids.len();
+        let start = page * page_size;
+        if start >= total {
+            return Vec::new(&env);
+        }
+        let end = (start + page_size).min(total);
+        let mut result = Vec::new(&env);
+        for i in start..end {
+            result.push_back(ids.get(i).unwrap());
+        }
+        result
     }
 
     pub fn get_milestone(
@@ -1849,6 +1913,12 @@ impl StellarGrantsContract {
         // If it was inactive, restore it to active
         if grant.status == GrantStatus::Inactive {
             grant.status = GrantStatus::Active;
+            Storage::index_transition(
+                &env,
+                GrantStatus::Inactive as u32,
+                GrantStatus::Active as u32,
+                grant_id,
+            );
         }
 
         Storage::set_grant(&env, grant_id, &grant);
@@ -1902,6 +1972,12 @@ fn check_heartbeat(env: &Env, grant: &mut Grant) {
     if seconds_since_heartbeat > 30 * 24 * 60 * 60 {
         grant.status = GrantStatus::Inactive;
         Storage::set_grant(env, grant.id, grant);
+        Storage::index_transition(
+            env,
+            GrantStatus::Active as u32,
+            GrantStatus::Inactive as u32,
+            grant.id,
+        );
         Events::emit_grant_gone_inactive(env, grant.id, now);
     }
 }

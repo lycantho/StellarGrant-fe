@@ -229,6 +229,91 @@
             "contract_data": {
               "ext": "v0",
               "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GrantStatusIndex"
+                  },
+                  {
+                    "u32": 1
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "vec": []
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GrantStatusIndex"
+                  },
+                  {
+                    "u32": 2
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "vec": [
+                  {
+                    "u64": "12"
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "GrantStatusIndex"
+                  },
+                  {
+                    "u32": 4
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "vec": []
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

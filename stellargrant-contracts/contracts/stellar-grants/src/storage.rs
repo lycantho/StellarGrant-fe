@@ -25,6 +25,8 @@ pub enum DataKey {
     /// Tracks whether a voter has already upvoted a specific milestone.
     MilestoneUpvoter(u64, u32, soroban_sdk::Address),
     Blacklist(soroban_sdk::Address),
+    /// Per-status index: maps GrantStatus discriminant → Vec<u64> of grant IDs.
+    GrantStatusIndex(u32),
 }
 
 pub struct Storage;
@@ -288,5 +290,59 @@ impl Storage {
         env.storage()
             .persistent()
             .remove(&DataKey::Blacklist(address.clone()));
+    }
+
+    // --- Grant status index helpers ---
+
+    /// Maximum number of grant IDs stored per status bucket to bound gas costs.
+    pub const STATUS_INDEX_MAX: u32 = 500;
+
+    pub fn get_status_index(env: &Env, status: u32) -> soroban_sdk::Vec<u64> {
+        let key = DataKey::GrantStatusIndex(status);
+        let vec = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(soroban_sdk::Vec::new(env));
+        if !vec.is_empty() {
+            Self::bump_persistent_ttl(env, &key);
+        }
+        vec
+    }
+
+    pub fn set_status_index(env: &Env, status: u32, ids: &soroban_sdk::Vec<u64>) {
+        let key = DataKey::GrantStatusIndex(status);
+        env.storage().persistent().set(&key, ids);
+        Self::bump_persistent_ttl(env, &key);
+    }
+
+    /// Add `grant_id` to the index for `status`, respecting the cap.
+    pub fn index_add(env: &Env, status: u32, grant_id: u64) {
+        let mut ids = Self::get_status_index(env, status);
+        if ids.len() >= Self::STATUS_INDEX_MAX {
+            return; // silently drop when cap is reached
+        }
+        if !ids.contains(grant_id) {
+            ids.push_back(grant_id);
+            Self::set_status_index(env, status, &ids);
+        }
+    }
+
+    /// Remove `grant_id` from the index for `status`.
+    pub fn index_remove(env: &Env, status: u32, grant_id: u64) {
+        let ids = Self::get_status_index(env, status);
+        let mut new_ids = soroban_sdk::Vec::new(env);
+        for id in ids.iter() {
+            if id != grant_id {
+                new_ids.push_back(id);
+            }
+        }
+        Self::set_status_index(env, status, &new_ids);
+    }
+
+    /// Move `grant_id` from one status bucket to another atomically.
+    pub fn index_transition(env: &Env, from: u32, to: u32, grant_id: u64) {
+        Self::index_remove(env, from, grant_id);
+        Self::index_add(env, to, grant_id);
     }
 }
