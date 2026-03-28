@@ -1097,6 +1097,8 @@ mod tests {
             &multisig,
         );
 
+        client.grant_accept(&grant_id, &owner);
+
         let funder = Address::generate(&env);
         token_admin.mint(&funder, &1000);
         client.grant_fund(&grant_id, &funder, &1000, &None);
@@ -1165,6 +1167,8 @@ mod tests {
             &multisig,
         );
 
+        client.grant_accept(&grant_id, &owner);
+
         let funder = Address::generate(&env);
         token_admin.mint(&funder, &1000);
         client.grant_fund(&grant_id, &funder, &1000, &None);
@@ -1230,6 +1234,8 @@ mod tests {
             &reviewers,
             &multisig,
         );
+
+        client.grant_accept(&grant_id, &owner);
 
         let result = client.try_sign_release(&grant_id, &attacker);
         assert_eq!(result, Err(Ok(ContractError::NotMultisigSigner.into())));
@@ -1351,6 +1357,8 @@ mod tests {
             &0i128,
         );
 
+        client.grant_accept(&grant_id, &owner);
+
         token_admin.mint(&funder, &500);
         client.grant_fund(&grant_id, &funder, &500, &None);
 
@@ -1413,6 +1421,8 @@ mod tests {
             &reviewers,
             &2u64,
         );
+
+        client.grant_accept(&grant_id, &owner);
 
         let result = client.try_milestone_submit(
             &grant_id,
@@ -2191,7 +2201,7 @@ mod tests {
             assert_eq!(grant.total_amount, 1000);
             assert_eq!(grant.milestone_amount, 500);
             assert_eq!(grant.total_milestones, 2);
-            assert_eq!(grant.status, GrantStatus::Active);
+            assert_eq!(grant.status, GrantStatus::PendingAcceptance);
             assert_eq!(grant.escrow_balance, 0);
         });
     }
@@ -2404,6 +2414,8 @@ mod tests {
             &0i128,
         );
         assert_eq!(created, 1);
+
+        client.grant_accept(&created, &owner);
 
         let new_title = String::from_str(&env, "Updated Grant");
         let new_description = String::from_str(&env, "Updated description");
@@ -4011,6 +4023,139 @@ mod tests {
     #[test]
     fn test_grant_pause_and_resume_success() {
         let env = Env::default();
+        let (client, admin, contract_id) = setup_test(&env);
+        let global_admin = admin.clone();
+
+        env.mock_all_auths();
+        let council = Address::generate(&env);
+        client.initialize(&admin, &council);
+
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token,
+            Vec::new(&env),
+        );
+
+        client.grant_pause(&grant_id, &owner);
+
+        env.as_contract(&contract_id, || {
+            let g = Storage::get_grant(&env, grant_id).unwrap();
+            assert_eq!(g.status, GrantStatus::Paused);
+        });
+
+        // Attempt to create grant
+        let result = client.try_grant_create(
+            &target,
+            &String::from_str(&env, "Title"),
+            &String::from_str(&env, "Desc"),
+            &Address::generate(&env),
+            &1000,
+            &1000,
+            &1,
+            &Vec::new(&env),
+            &0,
+            &None,
+            &0i128,
+        );
+        assert_eq!(result, Err(Ok(ContractError::Blacklisted.into())));
+    }
+
+    #[test]
+    fn test_grant_pause_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 201u64;
+
+        create_grant(&env, &contract_id, grant_id, owner, token, Vec::new(&env));
+
+        let result = client.try_grant_pause(&grant_id, &attacker);
+        assert_eq!(result, Err(Ok(ContractError::Unauthorized.into())));
+    }
+
+    #[test]
+    fn test_grant_resume_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, contract_id) = setup_test(&env);
+        let owner = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let token = Address::generate(&env);
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(owner.clone());
+        let grant_id = client.grant_create(
+            &owner,
+            &String::from_str(&env, "Grant"),
+            &String::from_str(&env, "Desc"),
+            &token,
+            &1000,
+            &500,
+            &2,
+            &reviewers,
+            &1,
+            &None,
+            &0i128,
+        );
+        client.grant_pause(&grant_id, &owner);
+
+        client.grant_accept(&grant_id, &owner);
+
+        env.ledger().set_timestamp(31 * 24 * 60 * 60 + 1);
+
+        let result = client.try_milestone_submit(
+            &grant_id,
+            &0,
+            &owner,
+            &String::from_str(&env, "M1"),
+            &String::from_str(&env, "url"),
+        );
+        assert_eq!(result, Err(Ok(ContractError::HeartbeatMissed.into())));
+
+        client.grant_ping(&grant_id, &owner);
+
+        env.as_contract(&contract_id, || {
+            let grant = Grant {
+                id: grant_id,
+                title: String::from_str(&env, "Paused"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
+                owner: owner.clone(),
+                token: token_id.clone(),
+                status: GrantStatus::Paused,
+                total_amount: 1000,
+                reviewers: Vec::new(&env),
+                quorum: 1,
+                total_milestones: 1,
+                milestones_paid_out: 0,
+                escrow_balance: 0,
+                funders: Vec::new(&env),
+                reason: None,
+                cancellation_requested_at: None,
+                timestamp: env.ledger().timestamp(),
+                last_heartbeat: env.ledger().timestamp(),
+            };
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        client.milestone_submit(
+            &grant_id,
+            &0,
+            &owner,
+            &String::from_str(&env, "Work done"),
+            &String::from_str(&env, "https://proof.url"),
+        );
+        assert_eq!(result, Err(Ok(ContractError::InvalidState.into())));
+    }
+
+    #[test]
+    fn test_grant_pause_and_resume_success() {
+        let env = Env::default();
         env.mock_all_auths();
         let (client, _, contract_id) = setup_test(&env);
         let owner = Address::generate(&env);
@@ -4303,7 +4448,7 @@ mod tests {
 
         env.as_contract(&client.address, || {
             let grant = Storage::get_grant(&env, grant_id).unwrap();
-            assert_eq!(grant.status, GrantStatus::PendingFunding);
+            assert_eq!(grant.status, GrantStatus::PendingAcceptance);
             assert_eq!(grant.min_funding, 500);
         });
     }
@@ -4334,7 +4479,7 @@ mod tests {
 
         env.as_contract(&client.address, || {
             let grant = Storage::get_grant(&env, grant_id).unwrap();
-            assert_eq!(grant.status, GrantStatus::Active);
+            assert_eq!(grant.status, GrantStatus::PendingAcceptance);
         });
     }
 
@@ -4748,8 +4893,8 @@ mod tests {
 
         let result = client.try_grant_create(
             &owner,
-            &String::from_str(&env, "G"),
-            &String::from_str(&env, "D"),
+            &String::from_str(&env, "Grant"),
+            &String::from_str(&env, "Desc"),
             &token,
             &1000i128,
             &500i128,
