@@ -1,4 +1,6 @@
-use soroban_sdk::{testutils::Address as TestAddress, Address, Env, String, Vec};
+use soroban_sdk::{
+    testutils::Address as TestAddress, testutils::Ledger, Address, Env, String, Vec,
+};
 use stellar_grants::{MilestoneState, StellarGrantsContractClient, Storage};
 
 #[test]
@@ -38,6 +40,9 @@ fn test_milestone_voting_quorum_and_events() {
         &String::from_str(&env, "desc"),
         &String::from_str(&env, "proof"),
     );
+
+    // Advance past community review period (3 days)
+    env.ledger().set_timestamp(3 * 24 * 60 * 60 + 1);
 
     // Reviewer 1 votes approve
     let res1 = client.milestone_vote(&grant_id, &0, &reviewers.get(0).unwrap(), &true, &None);
@@ -88,6 +93,10 @@ fn test_milestone_vote_after_quorum_panics() {
         &String::from_str(&env, "desc"),
         &String::from_str(&env, "proof"),
     );
+
+    // Advance past community review period (3 days)
+    env.ledger().set_timestamp(3 * 24 * 60 * 60 + 1);
+
     let _ = client.milestone_vote(&grant_id, &0, &reviewers.get(0).unwrap(), &true, &None);
     let _ = client.milestone_vote(&grant_id, &0, &reviewers.get(1).unwrap(), &true, &None);
     // This vote should panic
@@ -131,6 +140,9 @@ fn test_milestone_double_voting_panics() {
         &String::from_str(&env, "desc"),
         &String::from_str(&env, "proof"),
     );
+
+    // Advance past community review period (3 days)
+    env.ledger().set_timestamp(3 * 24 * 60 * 60 + 1);
 
     // Reviewer 1 votes approve
     let _ = client.milestone_vote(&grant_id, &0, &reviewers.get(0).unwrap(), &true, &None);

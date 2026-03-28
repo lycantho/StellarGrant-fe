@@ -55,8 +55,6 @@
       ]
     ],
     [],
-    [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
@@ -202,6 +200,12 @@
               "durability": "persistent",
               "val": {
                 "map": [
+                  {
+                    "key": {
+                      "symbol": "cancellation_requested_at"
+                    },
+                    "val": "void"
+                  },
                   {
                     "key": {
                       "symbol": "description"
@@ -427,12 +431,28 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "100"
+                      "i128": "500"
                     }
                   },
                   {
                     "key": {
                       "symbol": "approvals"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "community_comments"
+                    },
+                    "val": {
+                      "map": []
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "community_upvotes"
                     },
                     "val": {
                       "u32": 0
@@ -491,7 +511,7 @@
                       "symbol": "state"
                     },
                     "val": {
-                      "u32": 1
+                      "u32": 6
                     }
                   },
                   {
@@ -560,6 +580,22 @@
                   {
                     "key": {
                       "symbol": "approvals"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "community_comments"
+                    },
+                    "val": {
+                      "map": []
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "community_upvotes"
                     },
                     "val": {
                       "u32": 0

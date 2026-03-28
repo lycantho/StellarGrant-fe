@@ -207,6 +207,7 @@ impl StellarGrantsContract {
             funders: soroban_sdk::Vec::new(&env),
             reason: None,
             timestamp: env.ledger().timestamp(),
+            last_heartbeat: env.ledger().timestamp(),
             cancellation_requested_at: None,
         };
 
@@ -797,14 +798,7 @@ impl StellarGrantsContract {
         escrow_state.quorum_ready = true;
         Storage::set_escrow_state(env, grant_id, &escrow_state);
 
-        Events::emit_payee_receipt(
-            env,
-            grant_id,
-            grant.owner.clone(),
-            grant.token.clone(),
-            total_paid,
-            grant.milestones_paid_out,
-        );
+        Events::emit_payee_receipt(env, grant_id, grant.owner.clone(), total_paid);
 
         Events::emit_grant_completed(env, grant_id, total_paid, remaining_balance);
         Ok(())
@@ -1065,7 +1059,9 @@ impl StellarGrantsContract {
     ) -> Result<(), ContractError> {
         recipient.require_auth();
 
-        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+
+        check_heartbeat(&env, &mut grant);
 
         if grant.status == GrantStatus::Inactive {
             return Err(ContractError::HeartbeatMissed);
@@ -1168,6 +1164,8 @@ impl StellarGrantsContract {
             let mut grant =
                 Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+            check_heartbeat(&env, &mut grant);
+
             if grant.status == GrantStatus::Inactive {
                 return Err(ContractError::HeartbeatMissed);
             }
@@ -1211,7 +1209,7 @@ impl StellarGrantsContract {
             Storage::set_grant(&env, grant_id, &grant);
 
             Events::emit_grant_funded(&env, grant_id, funder.clone(), amount, grant.escrow_balance);
-            Events::emit_payer_receipt(&env, grant_id, funder, grant.token, amount, memo);
+            Events::emit_payer_receipt(&env, grant_id, funder, amount, memo);
 
             Ok(())
         })
@@ -1581,6 +1579,8 @@ impl StellarGrantsContract {
                 let mut grant =
                     Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
 
+                check_heartbeat(&env, &mut grant);
+
                 if grant.status == GrantStatus::Inactive {
                     return Err(ContractError::HeartbeatMissed);
                 }
@@ -1627,14 +1627,7 @@ impl StellarGrantsContract {
                     amount,
                     grant.escrow_balance,
                 );
-                Events::emit_payer_receipt(
-                    &env,
-                    grant_id,
-                    funder.clone(),
-                    grant.token.clone(),
-                    amount,
-                    None,
-                );
+                Events::emit_payer_receipt(&env, grant_id, funder.clone(), amount, None);
             }
 
             Ok(())
@@ -1666,7 +1659,7 @@ impl StellarGrantsContract {
         }
 
         Storage::set_grant(&env, grant_id, &grant);
-        Events::emit_heartbeat_updated(&env, grant_id, owner, now);
+        Events::emit_heartbeat_updated(&env, grant_id, now);
 
         Ok(())
     }
@@ -1701,6 +1694,22 @@ impl StellarGrantsContract {
 
         Storage::remove_blacklisted(&env, &target);
         Ok(())
+    }
+}
+
+fn check_heartbeat(env: &Env, grant: &mut Grant) {
+    if grant.status != GrantStatus::Active {
+        return;
+    }
+
+    let now = env.ledger().timestamp();
+    let seconds_since_heartbeat = now.saturating_sub(grant.last_heartbeat);
+
+    // 30 days = 30 * 24 * 60 * 60 = 2,592,000 seconds
+    if seconds_since_heartbeat > 30 * 24 * 60 * 60 {
+        grant.status = GrantStatus::Inactive;
+        Storage::set_grant(env, grant.id, grant);
+        Events::emit_grant_gone_inactive(env, grant.id, now);
     }
 }
 
