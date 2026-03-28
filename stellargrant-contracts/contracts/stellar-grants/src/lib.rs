@@ -139,7 +139,6 @@ impl StellarGrantsContract {
         milestone.status_updated_at = env.ledger().timestamp();
         Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
         Events::milestone_status_changed(&env, grant_id, milestone_idx, MilestoneState::Resolved);
-        // Enhanced event emission: include all relevant data, standardize topics
 
         // Fetch grant for payout/refund
         let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
@@ -158,7 +157,6 @@ impl StellarGrantsContract {
             grant.milestones_paid_out += 1;
             Storage::set_grant(&env, grant_id, &grant);
             Events::emit_milestone_paid(&env, grant_id, milestone_idx, grant.milestone_amount);
-        // Enhanced event emission: include all relevant data, standardize topics
         } else {
             // Reject: refund milestone amount to funders (pro-rata)
             let total_refundable = grant.milestone_amount;
@@ -193,7 +191,6 @@ impl StellarGrantsContract {
                         &refund_amount,
                     );
                     Events::emit_refund_issued(
-                        // Enhanced event emission: include all relevant data, standardize topics
                         &env,
                         grant_id,
                         fund_entry.funder.clone(),
@@ -204,6 +201,47 @@ impl StellarGrantsContract {
             grant.escrow_balance -= total_refundable;
             Storage::set_grant(&env, grant_id, &grant);
         }
+        Ok(())
+    }
+
+    /// Allows the grant owner to manually withdraw funds for an approved milestone.
+    pub fn grant_withdraw(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+    ) -> Result<(), ContractError> {
+        let mut grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        grant.owner.require_auth();
+
+        let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
+            .ok_or(ContractError::MilestoneNotFound)?;
+
+        if milestone.state != MilestoneState::Approved {
+            return Err(ContractError::InvalidState);
+        }
+
+        if grant.escrow_balance < milestone.amount {
+            return Err(ContractError::InvalidInput);
+        }
+
+        let token_client = token::Client::new(&env, &grant.token);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &grant.owner,
+            &milestone.amount,
+        );
+
+        grant.escrow_balance -= milestone.amount;
+        grant.milestones_paid_out += 1;
+        milestone.state = MilestoneState::Paid;
+        milestone.status_updated_at = env.ledger().timestamp();
+
+        Storage::set_grant(&env, grant_id, &grant);
+        Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+
+        Events::emit_milestone_paid(&env, grant_id, milestone_idx, milestone.amount);
+        Events::milestone_status_changed(&env, grant_id, milestone_idx, MilestoneState::Paid);
+
         Ok(())
     }
 
