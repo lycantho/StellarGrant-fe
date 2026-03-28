@@ -4604,4 +4604,229 @@ mod tests {
         assert_eq!(r1.len(), 1);
         assert_eq!(r2.len(), 1);
     }
+
+    // ── Pausable module tests ────────────────────────────────────────
+
+    fn setup_paused_contract(
+        env: &Env,
+    ) -> (
+        StellarGrantsContractClient<'_>,
+        Address, // admin
+        Address, // contract_id
+    ) {
+        let (client, _, contract_id) = setup_test(env);
+        let admin = Address::generate(env);
+        env.mock_all_auths();
+        client.set_global_admin(&admin, &admin);
+        client.pause(&admin);
+        (client, admin, contract_id)
+    }
+
+    #[test]
+    fn test_pause_and_unpause_by_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, _) = setup_test(&env);
+        let admin = Address::generate(&env);
+        client.set_global_admin(&admin, &admin);
+
+        assert_eq!(client.is_paused(), false);
+        client.pause(&admin);
+        assert_eq!(client.is_paused(), true);
+        client.unpause(&admin);
+        assert_eq!(client.is_paused(), false);
+    }
+
+    #[test]
+    fn test_pause_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, _) = setup_test(&env);
+        let admin = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        client.set_global_admin(&admin, &admin);
+
+        let result = client.try_pause(&attacker);
+        assert_eq!(result, Err(Ok(ContractError::Unauthorized.into())));
+    }
+
+    #[test]
+    fn test_unpause_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, _) = setup_test(&env);
+        let admin = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        client.set_global_admin(&admin, &admin);
+        client.pause(&admin);
+
+        let result = client.try_unpause(&attacker);
+        assert_eq!(result, Err(Ok(ContractError::Unauthorized.into())));
+        assert_eq!(client.is_paused(), true); // still paused
+    }
+
+    #[test]
+    fn test_pause_requires_admin_set() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, _) = setup_test(&env);
+        let anyone = Address::generate(&env);
+
+        // No global admin set — should fail with Unauthorized
+        let result = client.try_pause(&anyone);
+        assert_eq!(result, Err(Ok(ContractError::Unauthorized.into())));
+    }
+
+    #[test]
+    fn test_paused_blocks_grant_create() {
+        let env = Env::default();
+        let (client, admin, _) = setup_paused_contract(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(Address::generate(&env));
+
+        let result = client.try_grant_create(
+            &owner,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &token,
+            &1000i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+            &1u32,
+            &None,
+            &0i128,
+        );
+        assert_eq!(result, Err(Ok(ContractError::ContractPaused.into())));
+
+        // Unpausing restores functionality
+        client.unpause(&admin);
+        let grant_id = client.grant_create(
+            &owner,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &token,
+            &1000i128,
+            &500i128,
+            &2u32,
+            &reviewers,
+            &1u32,
+            &None,
+            &0i128,
+        );
+        assert_eq!(grant_id, 1);
+    }
+
+    #[test]
+    fn test_paused_blocks_grant_fund() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_paused_contract(&env);
+        let owner = Address::generate(&env);
+        let funder = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 500u64;
+
+        create_grant(&env, &contract_id, grant_id, owner, token, Vec::new(&env));
+
+        let result = client.try_grant_fund(&grant_id, &funder, &100, &None);
+        assert_eq!(result, Err(Ok(ContractError::ContractPaused.into())));
+    }
+
+    #[test]
+    fn test_paused_blocks_milestone_submit() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_paused_contract(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 501u64;
+
+        create_grant(
+            &env,
+            &contract_id,
+            grant_id,
+            owner.clone(),
+            token,
+            Vec::new(&env),
+        );
+        create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Pending);
+
+        let result = client.try_milestone_submit(
+            &grant_id,
+            &0,
+            &owner,
+            &String::from_str(&env, "work"),
+            &String::from_str(&env, "https://proof.url"),
+        );
+        assert_eq!(result, Err(Ok(ContractError::ContractPaused.into())));
+    }
+
+    #[test]
+    fn test_paused_blocks_milestone_vote() {
+        let env = Env::default();
+        let (client, _, contract_id) = setup_paused_contract(&env);
+        let owner = Address::generate(&env);
+        let reviewer = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 502u64;
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+        create_grant(&env, &contract_id, grant_id, owner, token, reviewers);
+        create_milestone(&env, &contract_id, grant_id, 0, MilestoneState::Submitted);
+
+        let result = client.try_milestone_vote(&grant_id, &0, &reviewer, &true, &None);
+        assert_eq!(result, Err(Ok(ContractError::ContractPaused.into())));
+    }
+
+    #[test]
+    fn test_cancel_and_complete_allowed_while_paused() {
+        // Refund/cancel logic is intentionally NOT blocked by the pause
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, contract_id) = setup_test(&env);
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let token = Address::generate(&env);
+        let grant_id = 503u64;
+
+        client.set_global_admin(&admin, &admin);
+
+        // Create a grant with zero escrow so cancel doesn't need a token transfer
+        env.as_contract(&contract_id, || {
+            let grant = Grant {
+                id: grant_id,
+                title: String::from_str(&env, "Emergency"),
+                description: String::from_str(&env, "Desc"),
+                milestone_amount: 500,
+                owner: owner.clone(),
+                token,
+                status: GrantStatus::Active,
+                total_amount: 1000,
+                reviewers: Vec::new(&env),
+                quorum: 1,
+                total_milestones: 2,
+                milestones_paid_out: 0,
+                escrow_balance: 0,
+                funders: Vec::new(&env),
+                reason: None,
+                cancellation_requested_at: None,
+                timestamp: env.ledger().timestamp(),
+                last_heartbeat: env.ledger().timestamp(),
+                min_funding: 0,
+            };
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        client.pause(&admin);
+
+        // grant_cancel should still work while paused (funds recovery)
+        client.grant_cancel(&grant_id, &owner, &String::from_str(&env, "emergency"));
+
+        env.as_contract(&contract_id, || {
+            let g = Storage::get_grant(&env, grant_id).unwrap();
+            assert_eq!(g.status, GrantStatus::Cancelled);
+        });
+    }
 }
