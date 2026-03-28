@@ -143,7 +143,7 @@ mod tests {
     use soroban_sdk::testutils::{Events as _, Ledger as _};
     use soroban_sdk::{
         testutils::{storage::Persistent as _, Address as _},
-        token, Address, Env, Map, String, Vec,
+        token, Address, BytesN, Env, Map, String, Vec,
     };
 
     const EXTENDED_PERSISTENT_TTL: u32 = 1_000_000;
@@ -4021,6 +4021,20 @@ mod tests {
         let new_admin = Address::generate(&env);
         client.initialize(&admin, &council);
         let result = client.try_admin_change(&attacker, &new_admin);
+        assert_eq!(result, Err(Ok(ContractError::NotContractAdmin.into())));
+    }
+
+    #[test]
+    fn test_admin_upgrade_non_admin_returns_not_contract_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _, _) = setup_test(&env);
+        let admin = Address::generate(&env);
+        let council = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        client.initialize(&admin, &council);
+        let wasm_hash = BytesN::from_array(&env, &[2u8; 32]);
+        let result = client.try_admin_upgrade(&attacker, &wasm_hash);
         assert_eq!(result, Err(Ok(ContractError::NotContractAdmin.into())));
     }
 }

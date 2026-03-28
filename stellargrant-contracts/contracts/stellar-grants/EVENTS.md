@@ -14,7 +14,7 @@ Every event payload includes:
 ## Contract Lifecycle Events
 
 - `ContractInitialized`
-  - Emitted once when `initialize` completes (after global admin and council are stored).
+  - Emitted once when `initialize` completes (after global admin and council are stored, storage version set to `1`).
   - Fields: `event_version`, `grant_id` (always `0` for contract-level events), `council`, `timestamp`.
 
 - `ContractUpgraded`
@@ -23,6 +23,10 @@ Every event payload includes:
     - `admin_change` with `component = "admin_changed"`.
     - `set_council` with `component = "council_updated"`.
   - Fields: `event_version`, `grant_id`, `actor`, `component`, `timestamp`.
+
+- `ContractWasmUpgraded`
+  - Emitted immediately before `env.deployer().update_current_contract_wasm` in `admin_upgrade` (after storage version is incremented).
+  - Fields: `event_version`, `grant_id`, `admin`, `new_wasm_hash` (32 bytes), `new_storage_version`, `timestamp`.
 
 ## Grant and Milestone Events
 

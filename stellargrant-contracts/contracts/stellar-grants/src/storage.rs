@@ -25,6 +25,8 @@ pub enum DataKey {
     /// Tracks whether a voter has already upvoted a specific milestone.
     MilestoneUpvoter(u64, u32, soroban_sdk::Address),
     Blacklist(soroban_sdk::Address),
+    /// Monotonic schema / upgrade generation for migrations (see `UPGRADE_GUIDE.md`).
+    StorageVersion,
 }
 
 pub struct Storage;
@@ -94,6 +96,19 @@ impl Storage {
 
     pub fn set_council(env: &Env, council: &soroban_sdk::Address) {
         env.storage().persistent().set(&DataKey::Council, council);
+    }
+
+    pub fn get_storage_version(env: &Env) -> u32 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::StorageVersion)
+            .unwrap_or(1)
+    }
+
+    pub fn set_storage_version(env: &Env, version: u32) {
+        env.storage()
+            .persistent()
+            .set(&DataKey::StorageVersion, &version);
     }
 
     pub fn get_grant(env: &Env, grant_id: u64) -> Option<Grant> {
