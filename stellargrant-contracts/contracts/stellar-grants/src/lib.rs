@@ -491,6 +491,7 @@ impl StellarGrantsContract {
         quorum: u32,
         milestone_deadlines: Option<soroban_sdk::Vec<u64>>,
         min_funding: i128,
+        hard_cap: i128,
     ) -> Result<u64, ContractError> {
         owner.require_auth();
         assert_not_paused(&env)?;
@@ -551,6 +552,7 @@ impl StellarGrantsContract {
             last_heartbeat: env.ledger().timestamp(),
             cancellation_requested_at: None,
             min_funding,
+            hard_cap,
         };
 
         Storage::set_grant(&env, grant_id, &grant);
@@ -673,6 +675,7 @@ impl StellarGrantsContract {
             quorum,
             None,
             0,
+            0,
         )?;
         Storage::set_grant_min_reputation(&env, grant_id, min_reputation_score);
         Ok(grant_id)
@@ -726,6 +729,7 @@ impl StellarGrantsContract {
             reviewers,
             quorum,
             None,
+            0,
             0,
         )?;
 
@@ -1651,11 +1655,30 @@ impl StellarGrantsContract {
             let contract_address = env.current_contract_address();
             token_client.transfer(&funder, &contract_address, &amount);
 
-            // Update escrow balance for this specific token
             let current_balance = grant.escrow_balances.get(token.clone()).unwrap_or(0);
             let new_balance = current_balance
                 .checked_add(amount)
                 .ok_or(ContractError::InvalidInput)?;
+
+            // Enforce hard cap if set (hard_cap > 0)
+            if grant.hard_cap > 0 {
+                // Sum all token balances + this new addition
+                let mut total_escrow: i128 = 0;
+                for (_tok, bal) in grant.escrow_balances.iter() {
+                    total_escrow = total_escrow
+                        .checked_add(bal)
+                        .ok_or(ContractError::InvalidInput)?;
+                }
+                // total_escrow already includes the old balance for this token;
+                // add the new amount to get the prospective total.
+                let prospective_total = total_escrow
+                    .checked_add(amount)
+                    .ok_or(ContractError::InvalidInput)?;
+                if prospective_total > grant.hard_cap {
+                    return Err(ContractError::CapReached);
+                }
+            }
+
             grant.escrow_balances.set(token.clone(), new_balance);
 
             // Update funds tracking (per token)

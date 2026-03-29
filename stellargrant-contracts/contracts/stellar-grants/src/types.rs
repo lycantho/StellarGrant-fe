@@ -43,6 +43,8 @@ pub enum ContractError {
     InsufficientBalance = 32,
     /// Contract is globally paused; all state-modifying operations are blocked.
     ContractPaused = 33,
+    /// Donation would exceed the grant's hard cap.
+    CapReached = 34,
 }
 
 #[contracttype]
@@ -173,6 +175,8 @@ pub struct Grant {
     pub last_heartbeat: u64,
     /// Minimum escrow balance required before the grant transitions from PendingFunding to Active.
     pub min_funding: i128,
+    /// Maximum total funding allowed across all tokens. 0 means no cap.
+    pub hard_cap: i128,
 }
 
 #[contracttype]
