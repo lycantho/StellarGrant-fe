@@ -4,6 +4,8 @@ import React from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
+const MotionLink = motion(Link);
+
 interface ButtonProps {
   variant?: "primary" | "ghost";
   children: React.ReactNode;
@@ -29,7 +31,6 @@ export const Button = ({
   const combinedClassName = `${baseStyles} ${variants[variant]} ${className}`;
 
   if (href) {
-    const MotionLink = motion(Link);
     return (
       <MotionLink 
         href={href} 
