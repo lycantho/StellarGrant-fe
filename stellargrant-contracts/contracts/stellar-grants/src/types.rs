@@ -1,4 +1,4 @@
-use soroban_sdk::{contracterror, contracttype, Address, Map, String, Symbol, Vec};
+use soroban_sdk::{contracterror, contracttype, Address, Map, String, Vec};
 
 /// Contract error types
 #[contracterror]

@@ -19,7 +19,7 @@ pub use types::{
 };
 
 use soroban_sdk::{
-    contract, contractimpl, token, Address, BytesN, Env, String, Symbol, Vec,
+    contract, contractimpl, token, Address, BytesN, Env, String, Vec,
 };
 
 /// Community review window (3 days in seconds) that must elapse after milestone

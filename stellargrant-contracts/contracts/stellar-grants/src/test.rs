@@ -1043,9 +1043,9 @@ mod tests {
                     submission_timestamp: 0,
                     deadline: 0,
                     
-                    community_comments: Map::new(&env),,
+                    community_comments: Map::new(&env),
                     pending_extension_deadline: None,
-                    extension_votes: Map::new(&env),,
+                    extension_votes: Map::new(&env),
                     packed_stats: 0,
                 };
                 Storage::set_milestone(&env, grant_id, i, &milestone);
@@ -1134,9 +1134,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &m1);
@@ -1156,9 +1156,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 1, &m2);
@@ -1231,9 +1231,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &m1);
@@ -1302,9 +1302,9 @@ mod tests {
                     submission_timestamp: 0,
                     deadline: 0,
                     
-                    community_comments: Map::new(&env),,
+                    community_comments: Map::new(&env),
                     pending_extension_deadline: None,
-                    extension_votes: Map::new(&env),,
+                    extension_votes: Map::new(&env),
                     packed_stats: 0,
                 };
                 Storage::set_milestone(&env, grant_id, i, &milestone);
@@ -1375,9 +1375,9 @@ mod tests {
                     submission_timestamp: 0,
                     deadline: 0,
                     
-                    community_comments: Map::new(&env),,
+                    community_comments: Map::new(&env),
                     pending_extension_deadline: None,
-                    extension_votes: Map::new(&env),,
+                    extension_votes: Map::new(&env),
                     packed_stats: 0,
                 };
                 Storage::set_milestone(&env, grant_id, i, &milestone);
@@ -1574,9 +1574,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -1838,9 +1838,9 @@ mod tests {
                     submission_timestamp: 0,
                     deadline: 0,
                     
-                    community_comments: Map::new(&env),,
+                    community_comments: Map::new(&env),
                     pending_extension_deadline: None,
-                    extension_votes: Map::new(&env),,
+                    extension_votes: Map::new(&env),
                     packed_stats: 0,
                 };
                 Storage::set_milestone(&env, grant_id, idx, &milestone);
@@ -3245,9 +3245,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 1_000, // deadline at timestamp 1000
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
@@ -3796,9 +3796,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -3851,9 +3851,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -3903,9 +3903,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -3953,9 +3953,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -4000,9 +4000,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
@@ -4087,9 +4087,9 @@ mod tests {
                 submission_timestamp: 0,
                 deadline: 0,
                 
-                community_comments: Map::new(&env),,
+                community_comments: Map::new(&env),
                 pending_extension_deadline: None,
-                extension_votes: Map::new(&env),,
+                extension_votes: Map::new(&env),
                 packed_stats: 0,
             };
             Storage::set_milestone(&env, grant_id, 0, &milestone);
