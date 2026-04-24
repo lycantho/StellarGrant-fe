@@ -1,5 +1,5 @@
 use crate::types::{DisputeInfo, EscrowLifecycleState, EscrowMode, EscrowState, Grant, Milestone};
-use soroban_sdk::{contracttype, Env};
+use soroban_sdk::{contracttype, Address, Env, Map};
 
 #[contracttype]
 pub enum DataKey {
@@ -31,6 +31,8 @@ pub enum DataKey {
     StorageVersion,
     /// Global contract pause flag stored in instance storage.
     IsPaused,
+    /// Per-grant reviewer delegation map: grant_id -> (delegator -> delegatee).
+    Delegation,
     /// Tracks whether reputation was already credited for a milestone payout (issue #151).
     MilestoneReputationApplied(u64, u32),
     /// Global dispute fee amount in the primary token (issue #152).
@@ -380,6 +382,66 @@ impl Storage {
 
     pub fn set_paused(env: &Env, paused: bool) {
         env.storage().instance().set(&DataKey::IsPaused, &paused);
+    }
+
+    // --- Reviewer delegation helpers ---
+
+    pub fn get_delegation(env: &Env, grant_id: u64, delegator: &Address) -> Option<Address> {
+        let key = DataKey::Delegation;
+        let delegations: Map<u64, Map<Address, Address>> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(Map::new(env));
+        if !delegations.is_empty() {
+            Self::bump_persistent_ttl(env, &key);
+        }
+
+        delegations
+            .get(grant_id)
+            .and_then(|grant_delegations| grant_delegations.get(delegator.clone()))
+    }
+
+    pub fn set_delegation(env: &Env, grant_id: u64, delegator: &Address, delegatee: &Address) {
+        let key = DataKey::Delegation;
+        let mut delegations: Map<u64, Map<Address, Address>> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(Map::new(env));
+        let mut grant_delegations = delegations.get(grant_id).unwrap_or(Map::new(env));
+
+        grant_delegations.set(delegator.clone(), delegatee.clone());
+        delegations.set(grant_id, grant_delegations);
+
+        env.storage().persistent().set(&key, &delegations);
+        Self::bump_persistent_ttl(env, &key);
+    }
+
+    pub fn remove_delegation(env: &Env, grant_id: u64, delegator: &Address) {
+        let key = DataKey::Delegation;
+        let mut delegations: Map<u64, Map<Address, Address>> = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(Map::new(env));
+        let Some(mut grant_delegations) = delegations.get(grant_id) else {
+            return;
+        };
+
+        if !grant_delegations.contains_key(delegator.clone()) {
+            return;
+        }
+
+        grant_delegations.remove(delegator.clone());
+        if grant_delegations.is_empty() {
+            delegations.remove(grant_id);
+        } else {
+            delegations.set(grant_id, grant_delegations);
+        }
+
+        env.storage().persistent().set(&key, &delegations);
+        Self::bump_persistent_ttl(env, &key);
     }
 
     // --- Issue #151: milestone reputation tracking ---

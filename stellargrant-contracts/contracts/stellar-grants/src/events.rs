@@ -230,6 +230,16 @@ pub struct ContractWasmUpgraded {
     pub timestamp: u64,
 }
 
+#[contractevent]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReviewerDelegated {
+    pub event_version: u32,
+    pub grant_id: u64,
+    pub delegator: Address,
+    pub delegatee: Address,
+    pub timestamp: u64,
+}
+
 pub struct Events;
 
 #[contractevent]
@@ -885,6 +895,17 @@ impl Events {
             grant_id,
             council,
             total_clawed_back,
+            timestamp: env.ledger().timestamp(),
+        };
+        event.publish(env);
+    }
+
+    pub fn reviewer_delegated(env: &Env, grant_id: u64, delegator: Address, delegatee: Address) {
+        let event = ReviewerDelegated {
+            event_version: EVENT_VERSION,
+            grant_id,
+            delegator,
+            delegatee,
             timestamp: env.ledger().timestamp(),
         };
         event.publish(env);

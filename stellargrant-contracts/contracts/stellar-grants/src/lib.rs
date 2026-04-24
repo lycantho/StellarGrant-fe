@@ -986,6 +986,35 @@ impl StellarGrantsContract {
         Ok(grant_id)
     }
 
+    /// Allow a reviewer to delegate milestone voting power for a specific grant.
+    /// Passing `delegatee == delegator` revokes any active delegation.
+    pub fn grant_delegate(
+        env: Env,
+        delegator: Address,
+        delegatee: Address,
+        grant_id: u64,
+    ) -> Result<(), ContractError> {
+        delegator.require_auth();
+        assert_not_paused(&env)?;
+
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        if grant.status() != GrantStatus::Active {
+            return Err(ContractError::InvalidState);
+        }
+        if !grant.reviewers.contains(delegator.clone()) {
+            return Err(ContractError::Unauthorized);
+        }
+
+        if delegatee == delegator {
+            Storage::remove_delegation(&env, grant_id, &delegator);
+        } else {
+            Storage::set_delegation(&env, grant_id, &delegator, &delegatee);
+        }
+
+        Events::reviewer_delegated(&env, grant_id, delegator, delegatee);
+        Ok(())
+    }
+
     /// Register a contributor profile on-chain
     pub fn contributor_register(
         env: Env,
@@ -1505,12 +1534,8 @@ impl StellarGrantsContract {
         approve: bool,
         feedback: Option<String>,
     ) -> Result<bool, ContractError> {
-        reviewer.require_auth();
+        authorize_reviewer_vote_actor(&env, grant_id, &reviewer)?;
         assert_not_paused(&env)?;
-
-        if Storage::is_blacklisted(&env, &reviewer) {
-            return Err(ContractError::Blacklisted);
-        }
 
         let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
         let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
@@ -2154,6 +2179,7 @@ impl StellarGrantsContract {
 
         grant.reviewers = new_reviewers;
         Storage::set_grant(&env, grant_id, &grant);
+        Storage::remove_delegation(&env, grant_id, &old_reviewer);
 
         Events::emit_reviewer_removed(&env, grant_id, owner, old_reviewer);
         Ok(())
@@ -2874,6 +2900,27 @@ fn ensure_min_reputation_for_grant(
     let profile = Storage::get_contributor(env, contributor).ok_or(ContractError::Unauthorized)?;
     if profile.reputation_score < min_reputation {
         return Err(ContractError::InsufficientReputation);
+    }
+
+    Ok(())
+}
+
+fn authorize_reviewer_vote_actor(
+    env: &Env,
+    grant_id: u64,
+    reviewer: &Address,
+) -> Result<(), ContractError> {
+    if Storage::is_blacklisted(env, reviewer) {
+        return Err(ContractError::Blacklisted);
+    }
+
+    if let Some(delegatee) = Storage::get_delegation(env, grant_id, reviewer) {
+        if Storage::is_blacklisted(env, &delegatee) {
+            return Err(ContractError::Blacklisted);
+        }
+        delegatee.require_auth();
+    } else {
+        reviewer.require_auth();
     }
 
     Ok(())
