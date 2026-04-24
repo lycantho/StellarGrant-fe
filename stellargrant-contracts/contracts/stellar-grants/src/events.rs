@@ -243,6 +243,17 @@ pub struct QuorumReached {
     pub timestamp: u64,
 }
 
+#[contractevent]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FunderQuorumReached {
+    pub event_version: u32,
+    pub grant_id: u64,
+    pub milestone_idx: u32,
+    pub total_voted_funding: i128,
+    pub total_required_funding: i128,
+    pub timestamp: u64,
+}
+
 impl Events {
     pub fn emit_quorum_reached(
         env: &Env,
@@ -257,6 +268,24 @@ impl Events {
             milestone_idx,
             approvals,
             quorum,
+            timestamp: env.ledger().timestamp(),
+        };
+        event.publish(env);
+    }
+
+    pub fn emit_funder_quorum_reached(
+        env: &Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        total_voted_funding: i128,
+        total_required_funding: i128,
+    ) {
+        let event = FunderQuorumReached {
+            event_version: EVENT_VERSION,
+            grant_id,
+            milestone_idx,
+            total_voted_funding,
+            total_required_funding,
             timestamp: env.ledger().timestamp(),
         };
         event.publish(env);

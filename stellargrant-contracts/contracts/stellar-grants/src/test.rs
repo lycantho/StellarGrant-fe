@@ -157,7 +157,7 @@ mod tests {
     ) {
         let contract_id = env.register(StellarGrantsContract, ());
         let client = StellarGrantsContractClient::new(env, &contract_id);
-        let admin = Address::generate(env);
+        let admin = Address::generate(0, Vec::new(env), env);
         (client, admin, contract_id)
     }
 
@@ -185,7 +185,7 @@ mod tests {
                 1,
                 env.ledger().timestamp(),
                 0,
-                env,
+                0, Vec::new(env), env,
             );
             Storage::set_grant(env, grant_id, &grant);
         });
@@ -206,7 +206,7 @@ mod tests {
                 100,
                 grant.primary_token,
                 0,
-                env,
+                0, Vec::new(env), env,
             );
             milestone.set_state(state);
             milestone.proof_url = Some(String::from_str(env, "https://proof.url"));
@@ -219,7 +219,7 @@ mod tests {
         env: &Env,
         contributor: Address,
     ) -> crate::types::ContributorProfile {
-        let mut skills = Vec::new(env);
+        let mut skills = Vec::new(0, Vec::new(env), env);
         skills.push_back(String::from_str(env, "Rust"));
 
         crate::types::ContributorProfile {
@@ -444,8 +444,8 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.approvals, 1);
-            assert_eq!(updated_milestone.state, MilestoneState::AwaitingPayout);
+            assert_eq!(updated_milestone.approvals(), 1);
+            assert_eq!(updated_milestone.state(), MilestoneState::AwaitingPayout);
             assert!(updated_milestone.votes.get(reviewer).unwrap());
         });
 
@@ -456,7 +456,7 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.state, MilestoneState::Paid);
+            assert_eq!(updated_milestone.state(), MilestoneState::Paid);
         });
 
         // Verify that tokens were transferred to the grant owner
@@ -503,7 +503,7 @@ mod tests {
                 0,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -560,32 +560,9 @@ mod tests {
             token: token_id.clone(),
         });
 
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token_id.clone(), remaining);
-        let grant = Grant {
-            id: grant_id,
-            title: String::from_str(&env, "Test"),
-            description: String::from_str(&env, "Desc"),
-            milestone_amount: 500,
-            owner: owner.clone(),
-            primary_token: token_id.clone(),
-            status: GrantStatus::Active,
-            total_amount: total_funded,
-            reviewers: Vec::new(&env),
-            quorum: 1,
-            total_milestones: 1,
-            milestones_paid_out: 0,
-            escrow_balances,
-            funders,
-            reason: None,
-
-            cancellation_requested_at: None,
-            timestamp: env.ledger().timestamp(),
-            last_heartbeat: env.ledger().timestamp(),
-            min_funding: 0,
-            hard_cap: 0,
-            tags: Vec::new(&env),
-        };
+// Redundant literal removed
 
         env.as_contract(&contract_id, || {
             let mut grant = Grant::new(
@@ -604,7 +581,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), remaining);
             grant.escrow_balances = escrow_balances;
             grant.funders = funders;
@@ -653,32 +630,9 @@ mod tests {
         let token = Address::generate(&env);
 
         let grant_id = 1u64;
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token.clone(), 0);
-        let grant = Grant {
-            id: grant_id,
-            title: String::from_str(&env, "Test"),
-            description: String::from_str(&env, "Desc"),
-            milestone_amount: 500,
-            owner: owner.clone(),
-            primary_token: token.clone(),
-            status: GrantStatus::Completed,
-            total_amount: 100,
-            reviewers: Vec::new(&env),
-            quorum: 1,
-            total_milestones: 1,
-            milestones_paid_out: 1,
-            escrow_balances,
-            funders: Vec::new(&env),
-            reason: None,
-
-            cancellation_requested_at: None,
-            timestamp: env.ledger().timestamp(),
-            last_heartbeat: env.ledger().timestamp(),
-            min_funding: 0,
-            hard_cap: 0,
-            tags: Vec::new(&env),
-        };
+// Redundant literal removed
 
         env.as_contract(&contract_id, || {
             let mut grant = Grant::new(
@@ -697,7 +651,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             grant.escrow_balances = escrow_balances;
             grant.set_milestones_paid_out(1);
@@ -754,32 +708,9 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 500);
-            let grant = Grant {
-                id: grant_id,
-                title: String::from_str(&env, "Admin Cancel"),
-                description: String::from_str(&env, "Desc"),
-                milestone_amount: 500,
-                owner,
-                primary_token: token_id.clone(),
-                status: GrantStatus::Active,
-                total_amount: 500,
-                reviewers: Vec::new(&env),
-                quorum: 1,
-                total_milestones: 1,
-                milestones_paid_out: 0,
-                escrow_balances,
-                funders,
-                reason: None,
-
-                cancellation_requested_at: None,
-                timestamp: env.ledger().timestamp(),
-                last_heartbeat: env.ledger().timestamp(),
-                min_funding: 0,
-                hard_cap: 0,
-                tags: Vec::new(&env),
-            };
+            grant.funders = funders;
             Storage::set_grant(&env, grant_id, &grant);
         });
 
@@ -817,31 +748,9 @@ mod tests {
                 2,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
-            let grant = Grant {
-                id: grant_id,
-                title: String::from_str(&env, "No funds"),
-                description: String::from_str(&env, "Desc"),
-                milestone_amount: 500,
-                owner: owner.clone(),
-                primary_token: token,
-                status: GrantStatus::Active,
-                total_amount: 1000,
-                reviewers: Vec::new(&env),
-                quorum: 1,
-                total_milestones: 2,
-                milestones_paid_out: 0,
-                escrow_balances,
-                funders: Vec::new(&env),
-                reason: None,
-                timestamp: env.ledger().timestamp(),
-                last_heartbeat: env.ledger().timestamp(),
-                min_funding: 0,
-                hard_cap: 0,
-                tags: Vec::new(&env),
-                cancellation_requested_at: None,
-            };
+            grant.funders = Vec::new(&env);
             Storage::set_grant(&env, grant_id, &grant);
         });
 
@@ -889,31 +798,9 @@ mod tests {
             token: token_id.clone(),
         });
 
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token_id.clone(), 100);
-        let grant = Grant {
-            id: grant_id,
-            title: String::from_str(&env, "Dust"),
-            description: String::from_str(&env, "Desc"),
-            milestone_amount: 50,
-            owner: owner.clone(),
-            primary_token: token_id.clone(),
-            status: GrantStatus::Active,
-            total_amount: 150,
-            reviewers: Vec::new(&env),
-            quorum: 1,
-            total_milestones: 3,
-            milestones_paid_out: 0,
-            escrow_balances,
-            funders,
-            reason: None,
-            timestamp: env.ledger().timestamp(),
-            last_heartbeat: env.ledger().timestamp(),
-            min_funding: 0,
-            hard_cap: 0,
-            tags: Vec::new(&env),
-            cancellation_requested_at: None,
-        };
+// Redundant literal removed
 
         env.as_contract(&contract_id, || {
             let mut grant = Grant::new(
@@ -932,7 +819,7 @@ mod tests {
                 3,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 100);
             grant.escrow_balances = escrow_balances;
             grant.funders = funders;
@@ -981,31 +868,9 @@ mod tests {
             token: token_id.clone(),
         });
 
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token_id.clone(), total_funded);
-        let grant = Grant {
-            id: grant_id,
-            title: String::from_str(&env, "Test"),
-            description: String::from_str(&env, "Desc"),
-            milestone_amount: 500,
-            owner: owner.clone(),
-            primary_token: token_id.clone(),
-            status: GrantStatus::Active,
-            total_amount: total_funded,
-            reviewers: Vec::new(&env),
-            quorum: 1,
-            total_milestones: 2,
-            milestones_paid_out: 0,
-            escrow_balances,
-            funders,
-            reason: None,
-            timestamp: env.ledger().timestamp(),
-            last_heartbeat: env.ledger().timestamp(),
-            min_funding: 0,
-            hard_cap: 0,
-            tags: Vec::new(&env),
-            cancellation_requested_at: None,
-        };
+// Redundant literal removed
 
         env.as_contract(&contract_id, || {
             let mut grant = Grant::new(
@@ -1024,7 +889,7 @@ mod tests {
                 2,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), total_funded);
             grant.escrow_balances = escrow_balances;
             grant.funders = funders;
@@ -1100,7 +965,7 @@ mod tests {
                 2,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -1156,7 +1021,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), total_funded);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -1374,7 +1239,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), total_funded);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -1626,7 +1491,7 @@ mod tests {
                 2,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -1699,7 +1564,7 @@ mod tests {
                 3,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -1902,7 +1767,7 @@ mod tests {
         let grant_id = 1u64;
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -1920,7 +1785,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             grant.set_milestones_paid_out(1);
@@ -1972,7 +1837,7 @@ mod tests {
             1,
             &env,
         );
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token_id.clone(), 0);
         grant.escrow_balances = escrow_balances;
         Storage::set_grant(&env, grant_id, &grant);
@@ -2031,7 +1896,7 @@ mod tests {
             1,
             &env,
         );
-        let mut escrow_balances = Map::new(&env);
+        let mut escrow_balances = Map::new(Map::new(&env)env);
         escrow_balances.set(token_id.clone(), 0);
         grant.escrow_balances = escrow_balances;
         Storage::set_grant(&env, grant_id, &grant);
@@ -2160,7 +2025,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), i128::MAX);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -2208,7 +2073,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -2266,7 +2131,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -2318,7 +2183,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -2374,7 +2239,7 @@ mod tests {
             assert_eq!(grant.description, description);
             assert_eq!(grant.total_amount, 1000);
             assert_eq!(grant.milestone_amount, 500);
-            assert_eq!(grant.total_milestones, 2);
+            assert_eq!(grant.total_milestones(), 2);
             assert_eq!(grant.status(), GrantStatus::PendingAcceptance);
             assert_eq!(
                 grant
@@ -3092,7 +2957,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -3351,7 +3216,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -3492,7 +3357,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -3535,7 +3400,7 @@ mod tests {
                 1,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 1000);
             grant.escrow_balances = escrow_balances;
             Storage::set_grant(&env, grant_id, &grant);
@@ -3912,7 +3777,7 @@ mod tests {
                 amount: 500,
                 token: token_id.clone(),
             });
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 500);
             let mut grant = Grant::new(
                 grant_id,
@@ -4058,7 +3923,7 @@ mod tests {
                 amount: 500,
                 token: token_id.clone(),
             });
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 500);
             let mut grant = Grant::new(
                 grant_id,
@@ -4207,7 +4072,7 @@ mod tests {
 
         // Create a Completed grant
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4249,7 +4114,7 @@ mod tests {
         token_admin.mint(&funder, &1000);
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4285,7 +4150,7 @@ mod tests {
         let grant_id = 205u64;
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4333,7 +4198,7 @@ mod tests {
         reviewers.push_back(reviewer.clone());
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4467,7 +4332,7 @@ mod tests {
         token_admin.mint(&funder, &1000);
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4516,7 +4381,7 @@ mod tests {
         let grant_id = 301u64;
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4566,7 +4431,7 @@ mod tests {
         token_admin.mint(&funder, &2000);
 
         env.as_contract(&contract_id, || {
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), 0);
             let mut grant = Grant::new(
                 grant_id,
@@ -4790,9 +4655,9 @@ mod tests {
         Address, // admin
         Address, // contract_id
     ) {
-        let (client, _, contract_id) = setup_test(env);
-        let admin = Address::generate(env);
-        let council = Address::generate(env);
+        let (client, _, contract_id) = setup_test(0, Vec::new(env), env);
+        let admin = Address::generate(0, Vec::new(env), env);
+        let council = Address::generate(0, Vec::new(env), env);
         env.mock_all_auths();
         client.initialize(&admin, &council);
         client.pause(&admin);
@@ -4987,33 +4852,25 @@ mod tests {
         client.initialize(&admin, &council);
 
         env.as_contract(&contract_id, || {
-            let grant = Grant {
-                id: grant_id,
-                title: String::from_str(&env, "Emergency"),
-                description: String::from_str(&env, "Desc"),
-                milestone_amount: 500,
-                owner: owner.clone(),
-                primary_token: token.clone(),
-                status: GrantStatus::Active,
-                total_amount: 1000,
-                reviewers: Vec::new(&env),
-                quorum: 1,
-                total_milestones: 2,
-                milestones_paid_out: 0,
-                escrow_balances: {
-                    let mut map = Map::new(&env);
-                    map.set(token.clone(), 0);
-                    map
-                },
-                funders: Vec::new(&env),
-                reason: None,
-                cancellation_requested_at: None,
-                timestamp: env.ledger().timestamp(),
-                last_heartbeat: env.ledger().timestamp(),
-                min_funding: 0,
-                hard_cap: 0,
-                tags: Vec::new(&env),
-            };
+            let mut grant = Grant::new(
+                grant_id,
+                owner.clone(),
+                String::from_str(&env, "Emergency"),
+                String::from_str(&env, "Desc"),
+                token.clone(),
+                1000,
+                500,
+                Vec::new(&env),
+                GrantStatus::Active,
+                1,
+                2,
+                env.ledger().timestamp(),
+                0,
+                &env,
+            );
+            let mut escrow = Map::new(Map::new(&env)env);
+            escrow.set(token.clone(), 0);
+            grant.escrow_balances = escrow;
             Storage::set_grant(&env, grant_id, &grant);
         });
 
@@ -5407,7 +5264,7 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.state, MilestoneState::AwaitingPayout);
+            assert_eq!(updated_milestone.state(), MilestoneState::AwaitingPayout);
         });
 
         // Funder challenges the milestone within the period
@@ -5421,7 +5278,7 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.state, MilestoneState::Challenged);
+            assert_eq!(updated_milestone.state(), MilestoneState::Challenged);
         });
 
         // Council resolves dispute in favor of owner
@@ -5431,7 +5288,7 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.state, MilestoneState::AwaitingPayout);
+            assert_eq!(updated_milestone.state(), MilestoneState::AwaitingPayout);
             // Returned to awaiting payout
         });
 
@@ -5444,7 +5301,7 @@ mod tests {
 
         env.as_contract(&contract_id, || {
             let updated_milestone = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
-            assert_eq!(updated_milestone.state, MilestoneState::Paid);
+            assert_eq!(updated_milestone.state(), MilestoneState::Paid);
         });
 
         let token_client = soroban_sdk::token::Client::new(&env, &token_id);
@@ -5996,7 +5853,7 @@ mod tests {
                 0,
                 &env,
             );
-            let mut escrow_balances = Map::new(&env);
+            let mut escrow_balances = Map::new(Map::new(&env)env);
             escrow_balances.set(token_id.clone(), escrow_balance);
             grant.escrow_balances = escrow_balances;
             grant.funders = funders;
@@ -6082,5 +5939,107 @@ mod tests {
             Err(Ok(ContractError::InvalidState.into())),
             "clawback on an already-cancelled grant must be rejected"
         );
+    }
+
+    #[test]
+    fn test_funder_voting_on_large_grant() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, admin, contract_id) = setup_test(&env);
+        let grant_id = 999u64;
+        let milestone_idx = 0u32;
+        let owner = Address::generate(&env);
+        let funder_large = Address::generate(&env);
+        let funder_small = Address::generate(&env);
+        let reviewer = Address::generate(&env);
+
+        let token_contract = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_id = token_contract.address();
+        let token_admin = token::StellarAssetClient::new(&env, &token_id);
+
+        // Threshold is 100_000 * 10^7 = 1_000_000_000_000
+        // We make a grant with 2,000,000,000,000
+        let large_budget = 2_000_000_000_000i128;
+        let contribution_large = 1_200_000_000_000i128; // 60%
+        let contribution_small = 800_000_000_000i128; // 40%
+
+        token_admin.mint(&contract_id, &large_budget);
+
+        let mut reviewers = Vec::new(&env);
+        reviewers.push_back(reviewer.clone());
+
+        let mut funders = Vec::new(&env);
+        funders.push_back(GrantFund {
+            funder: funder_large.clone(),
+            amount: contribution_large,
+            token: token_id.clone(),
+        });
+        funders.push_back(GrantFund {
+            funder: funder_small.clone(),
+            amount: contribution_small,
+            token: token_id.clone(),
+        });
+
+        env.as_contract(&contract_id, || {
+            let mut grant = Grant::new(
+                grant_id,
+                owner.clone(),
+                String::from_str(&env, "Large Grant"),
+                String::from_str(&env, "Desc"),
+                token_id.clone(),
+                large_budget,
+                large_budget / 2,
+                reviewers,
+                GrantStatus::Active,
+                1, // Quorum 1
+                2, // 2 milestones
+                env.ledger().timestamp(),
+                0,
+                0, // hard_cap
+                Vec::new(&env), // tags
+                &env,
+            );
+            grant.funders = funders;
+            let mut escrow = Map::new(&env);
+            escrow.set(token_id.clone(), large_budget);
+            grant.escrow_balances = escrow;
+            Storage::set_grant(&env, grant_id, &grant);
+        });
+
+        create_milestone(
+            &env,
+            &contract_id,
+            grant_id,
+            milestone_idx,
+            MilestoneState::Submitted,
+        );
+
+        // 1. Reviewer votes Approve
+        client.milestone_vote(&grant_id, &milestone_idx, &reviewer, &true, &None);
+
+        // 2. Verify state is FunderVoting
+        env.as_contract(&contract_id, || {
+            let m = Storage::get_milestone(&env, grant_id, milestone_idx)
+                .expect("milestone not found");
+            assert_eq!(m.state(), MilestoneState::FunderVoting);
+        });
+
+        // 3. Small funder (40%) votes Approve
+        client.funder_vote(&grant_id, &milestone_idx, &funder_small, &true);
+
+        // 4. Verify state is STILL FunderVoting
+        env.as_contract(&contract_id, || {
+            let m = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
+            assert_eq!(m.state(), MilestoneState::FunderVoting);
+        });
+
+        // 5. Large funder (60%) votes Approve
+        client.funder_vote(&grant_id, &milestone_idx, &funder_large, &true);
+
+        // 6. Verify state is now AwaitingPayout
+        env.as_contract(&contract_id, || {
+            let m = Storage::get_milestone(&env, grant_id, milestone_idx).unwrap();
+            assert_eq!(m.state(), MilestoneState::AwaitingPayout);
+        });
     }
 }

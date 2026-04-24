@@ -31,6 +31,9 @@ pub const CHALLENGE_PERIOD: u64 = 48 * 60 * 60;
 /// while one or more milestones are still in a submitted/review state.
 pub const CANCEL_GRACE_PERIOD: u64 = 7 * 24 * 60 * 60;
 
+/// Grants with a budget above this threshold (100,000 USDC with 7 decimals) require a funder vote.
+pub const FUNDER_VOTING_THRESHOLD: i128 = 100_000 * 10_000_000;
+
 #[contract]
 pub struct StellarGrantsContract;
 
@@ -790,6 +793,8 @@ impl StellarGrantsContract {
             num_milestones,
             env.ledger().timestamp(),
             min_funding,
+            _hard_cap,
+            tags.clone(),
             &env,
         );
 
@@ -1588,15 +1593,26 @@ impl StellarGrantsContract {
                 }
             }
 
-            // ----- Milestone approved, awaiting challenge period -----
-            milestone.set_state(MilestoneState::AwaitingPayout);
-            milestone.status_updated_at = env.ledger().timestamp();
-            Events::milestone_status_changed(
-                &env,
-                grant_id,
-                milestone_idx,
-                MilestoneState::AwaitingPayout,
-            );
+            // ----- Milestone approved, awaiting challenge period or funder vote -----
+            if grant.total_amount > FUNDER_VOTING_THRESHOLD {
+                milestone.set_state(MilestoneState::FunderVoting);
+                milestone.status_updated_at = env.ledger().timestamp();
+                Events::milestone_status_changed(
+                    &env,
+                    grant_id,
+                    milestone_idx,
+                    MilestoneState::FunderVoting,
+                );
+            } else {
+                milestone.set_state(MilestoneState::AwaitingPayout);
+                milestone.status_updated_at = env.ledger().timestamp();
+                Events::milestone_status_changed(
+                    &env,
+                    grant_id,
+                    milestone_idx,
+                    MilestoneState::AwaitingPayout,
+                );
+            }
         }
 
         Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
@@ -1611,6 +1627,83 @@ impl StellarGrantsContract {
         );
 
         Ok(quorum_reached)
+    }
+
+    /// Implement funder_vote for large budget grants. Votes are weighted by contribution.
+    /// Quorum of > 50% of total funding is required to transition to AwaitingPayout.
+    pub fn funder_vote(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        funder: Address,
+        approve: bool,
+    ) -> Result<(), ContractError> {
+        funder.require_auth();
+        assert_not_paused(&env)?;
+
+        let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
+            .ok_or(ContractError::MilestoneNotFound)?;
+
+        if milestone.state() != MilestoneState::FunderVoting {
+            return Err(ContractError::InvalidState);
+        }
+
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+
+        // Calculate this funder's contribution and total grant funding
+        let mut funder_contribution: i128 = 0;
+        let mut total_funding: i128 = 0;
+        for fund_entry in grant.funders.iter() {
+            total_funding += fund_entry.amount;
+            if fund_entry.funder == funder {
+                funder_contribution += fund_entry.amount;
+            }
+        }
+
+        if funder_contribution == 0 {
+            return Err(ContractError::Unauthorized);
+        }
+
+        if Storage::get_funder_vote(&env, grant_id, milestone_idx, &funder).is_some() {
+            return Err(ContractError::AlreadyVoted);
+        }
+
+        Storage::set_funder_vote(&env, grant_id, milestone_idx, &funder, approve);
+
+        if approve {
+            // Aggregate all approval votes from funders
+            let mut total_approve_funding: i128 = 0;
+            for fund_entry in grant.funders.iter() {
+                if let Some(true) =
+                    Storage::get_funder_vote(&env, grant_id, milestone_idx, &fund_entry.funder)
+                {
+                    total_approve_funding += fund_entry.amount;
+                }
+            }
+
+            // Quorum: > 50% of total funding
+            if total_approve_funding > total_funding / 2 {
+                milestone.set_state(MilestoneState::AwaitingPayout);
+                milestone.status_updated_at = env.ledger().timestamp();
+                Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+
+                Events::emit_funder_quorum_reached(
+                    &env,
+                    grant_id,
+                    milestone_idx,
+                    total_approve_funding,
+                    total_funding,
+                );
+                Events::milestone_status_changed(
+                    &env,
+                    grant_id,
+                    milestone_idx,
+                    MilestoneState::AwaitingPayout,
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Allows authorized reviewers to reject milestones with a reason.

@@ -37,6 +37,8 @@ pub enum DataKey {
     DisputeFeeAmount,
     /// Dispute fee info stored per milestone when a dispute is raised (issue #152).
     MilestoneDisputeInfo(u64, u32),
+    /// Tracks whether a funder has already voted on a milestone.
+    FunderVote(u64, u32, soroban_sdk::Address),
 }
 
 pub struct Storage;
@@ -442,5 +444,31 @@ impl Storage {
         env.storage()
             .persistent()
             .remove(&DataKey::MilestoneDisputeInfo(grant_id, milestone_idx));
+    }
+
+    pub fn get_funder_vote(
+        env: &Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        funder: &soroban_sdk::Address,
+    ) -> Option<bool> {
+        let key = DataKey::FunderVote(grant_id, milestone_idx, funder.clone());
+        let vote = env.storage().persistent().get(&key);
+        if vote.is_some() {
+            Self::bump_persistent_ttl(env, &key);
+        }
+        vote
+    }
+
+    pub fn set_funder_vote(
+        env: &Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        funder: &soroban_sdk::Address,
+        approve: bool,
+    ) {
+        let key = DataKey::FunderVote(grant_id, milestone_idx, funder.clone());
+        env.storage().persistent().set(&key, &approve);
+        Self::bump_persistent_ttl(env, &key);
     }
 }

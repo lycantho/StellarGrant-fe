@@ -154,6 +154,8 @@ pub enum MilestoneState {
     AwaitingPayout = 8,
     /// An AwaitingPayout milestone was challenged by a funder.
     Challenged = 9,
+    /// Snapshot voting period where funders must vote on milestone approval.
+    FunderVoting = 10,
 }
 
 #[contracttype]
@@ -213,6 +215,9 @@ impl Milestone {
             5 => MilestoneState::Disputed,
             6 => MilestoneState::Resolved,
             7 => MilestoneState::CommunityReview,
+            8 => MilestoneState::AwaitingPayout,
+            9 => MilestoneState::Challenged,
+            10 => MilestoneState::FunderVoting,
             _ => MilestoneState::Pending,
         }
     }
@@ -302,6 +307,8 @@ pub struct Grant {
     pub cancellation_requested_at: Option<u64>,
     pub last_heartbeat: u64,
     pub min_funding: i128,
+    pub hard_cap: i128,
+    pub tags: Vec<String>,
     pub packed_stats: u128,
 }
 
@@ -321,6 +328,8 @@ impl Grant {
         total_milestones: u32,
         timestamp: u64,
         min_funding: i128,
+        hard_cap: i128,
+        tags: Vec<String>,
         env: &soroban_sdk::Env,
     ) -> Self {
         let mut g = Self {
@@ -339,6 +348,8 @@ impl Grant {
             cancellation_requested_at: None,
             last_heartbeat: timestamp,
             min_funding,
+            hard_cap,
+            tags,
             packed_stats: 0,
         };
         g.set_status(status);
