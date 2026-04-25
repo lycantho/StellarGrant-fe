@@ -564,7 +564,7 @@ impl StellarGrantsContract {
         let rep_amt =
             payout_milestone_locked_funds_from_escrow(&env, &mut grant, &mut milestone, &payee)?;
         grant.set_milestones_paid_out(grant.milestones_paid_out() + 1);
-        milestone.state = MilestoneState::Paid;
+        milestone.set_state(MilestoneState::Paid);
         milestone.status_updated_at = env.ledger().timestamp();
 
         Storage::set_grant(&env, grant_id, &grant);
@@ -982,7 +982,7 @@ impl StellarGrantsContract {
         min_funding: i128,
         hard_cap: i128,
         tags: soroban_sdk::Vec<String>,
-        is_open_bounty: bool,
+        _is_open_bounty: bool,
     ) -> Result<u64, ContractError> {
         owner.require_auth();
         assert_not_paused(&env)?;
@@ -1039,23 +1039,21 @@ impl StellarGrantsContract {
         // call grant_accept before any funding or milestone activity can begin.
         let initial_status = GrantStatus::PendingAcceptance;
 
-        let mut grant = Grant {
-            id: grant_id,
-            owner: owner.clone(),
-            title: title.clone(),
-            description,
-            token_address: token_address.clone(),
+        let grant = Grant::new(
+            grant_id,
+            owner.clone(),
+            title.clone(),
+            description.clone(),
+            token_address.clone(),
             total_amount,
             milestone_amount,
             reviewers,
-            escrow_balances: soroban_sdk::Map::new(&env), // Initialize empty map
-            funders: soroban_sdk::Vec::new(&env),
-            reason: None,
-            timestamp: env.ledger().timestamp(),
-            last_heartbeat: env.ledger().timestamp(),
-            cancellation_requested_at: None,
+            initial_status,
+            quorum,
+            num_milestones,
+            env.ledger().timestamp(),
             min_funding,
-            _hard_cap,
+            hard_cap,
             tags.clone(),
             &env,
         );
@@ -1082,28 +1080,14 @@ impl StellarGrantsContract {
                 0
             };
 
-            let mut milestone = Milestone {
-                description: String::from_str(&env, ""),
-                amount: milestone_amount,
-                payout_token: token_address.clone(), // Default to grant token
-                state: MilestoneState::Pending,
-                votes: soroban_sdk::Map::new(&env),
-                reasons: soroban_sdk::Map::new(&env),
-                status_updated_at: 0,
-                proof_url: None,
-                submission_timestamp: 0,
-                deadline_timestamp: deadline,
-                community_comments: soroban_sdk::Map::new(&env),
-                packed_stats: 0,
-                bounty_winner: None,
-                additional_funds: soroban_sdk::Map::new(&env),
-                top_up_contributions: soroban_sdk::Vec::new(&env),
-                proof_hash: None,
-            };
-            milestone.set_idx(i);
-            milestone.set_approvals(0);
-            milestone.set_rejections(0);
-            milestone.set_community_upvotes(0);
+            let milestone = Milestone::new(
+                i,
+                String::from_str(&env, ""),
+                milestone_amount,
+                token_address.clone(),
+                deadline,
+                &env,
+            );
             Storage::set_milestone(&env, grant_id, i, &milestone);
         }
         // Enhanced event emission: include all relevant data, standardize topics
@@ -1571,7 +1555,7 @@ impl StellarGrantsContract {
         total_milestones: u32,
     ) -> Result<i128, ContractError> {
         let grant = Storage::get_grant(env, grant_id).ok_or(ContractError::GrantNotFound)?;
-        let primary = grant.token_address.clone();
+        let primary = grant.primary_token.clone();
         let mut total_paid: i128 = 0;
         let mut approved_count = 0;
         for milestone_idx in 0..total_milestones {
@@ -1612,13 +1596,13 @@ impl StellarGrantsContract {
             Self::compute_total_paid_if_quorum_ready(env, grant_id, grant.total_milestones())?;
         let escrow_bal = grant
             .escrow_balances
-            .get(grant.token_address.clone())
+            .get(grant.primary_token.clone())
             .unwrap_or(0);
         if escrow_bal < total_paid {
             return Err(ContractError::InvalidInput);
         }
         let remaining_balance = escrow_bal - total_paid;
-        let token_client = token::Client::new(env, &grant.token_address);
+        let token_client = token::Client::new(env, &grant.primary_token);
 
         if total_paid > 0 {
             token_client.transfer(&env.current_contract_address(), &grant.owner, &total_paid);
@@ -1747,7 +1731,7 @@ impl StellarGrantsContract {
             env,
             grant_id,
             grant.owner.clone(),
-            grant.token_address.clone(),
+            grant.primary_token.clone(),
             total_paid,
             None,
         );
@@ -1974,6 +1958,61 @@ impl StellarGrantsContract {
         }
 
         Ok(())
+    }
+
+    /// Handles reviewer voting for open-bounty milestones.
+    /// Votes are cast against a specific bounty submission; the first to reach
+    /// quorum is selected as the winner and the milestone transitions to AwaitingPayout.
+    fn milestone_vote_open_bounty(
+        env: Env,
+        grant_id: u64,
+        milestone_idx: u32,
+        reviewer: Address,
+        approve: bool,
+        feedback: Option<String>,
+        submission_idx: u32,
+    ) -> Result<bool, ContractError> {
+        let grant = Storage::get_grant(&env, grant_id).ok_or(ContractError::GrantNotFound)?;
+        let mut milestone = Storage::get_milestone(&env, grant_id, milestone_idx)
+            .ok_or(ContractError::MilestoneNotFound)?;
+
+        if milestone.votes.contains_key(reviewer.clone()) {
+            return Err(ContractError::AlreadyVoted);
+        }
+
+        let mut subs = Storage::get_bounty_submissions(&env, grant_id, milestone_idx)
+            .unwrap_or(Vec::new(&env));
+        if submission_idx as usize >= subs.len() as usize {
+            return Err(ContractError::InvalidInput);
+        }
+        let mut entry = subs
+            .get(submission_idx)
+            .ok_or(ContractError::InvalidInput)?;
+
+        if let Some(ref fb) = feedback {
+            entry.reasons.set(reviewer.clone(), fb.clone());
+        }
+        if approve {
+            entry.votes.set(reviewer.clone(), true);
+        }
+        subs.set(submission_idx, entry.clone());
+        Storage::set_bounty_submissions(&env, grant_id, milestone_idx, &subs);
+
+        milestone.votes.set(reviewer.clone(), approve);
+        Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+
+        let weight = bounty_submission_approve_weight(&env, &entry);
+        if weight >= grant.quorum() {
+            let mut winning = entry.clone();
+            winning.votes = entry.votes.clone();
+            milestone.bounty_winner = Some(winning.submitter.clone());
+            milestone.payout_token = winning.payout_token.clone();
+            milestone.set_state(MilestoneState::AwaitingPayout);
+            Storage::set_milestone(&env, grant_id, milestone_idx, &milestone);
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     /// Allows authorized reviewers to reject milestones with a reason.
@@ -2332,7 +2371,7 @@ impl StellarGrantsContract {
             let new_balance = current_balance
                 .checked_add(amount)
                 .ok_or(ContractError::InvalidInput)?;
-            if grant.hard_cap > 0 && token == grant.token_address && new_balance > grant.hard_cap {
+            if grant.hard_cap > 0 && token == grant.primary_token && new_balance > grant.hard_cap {
                 return Err(ContractError::CapReached);
             }
 
@@ -2364,7 +2403,7 @@ impl StellarGrantsContract {
             // Auto-transition PendingFunding → Active once threshold is met (based on primary token)
             let primary_balance = grant
                 .escrow_balances
-                .get(grant.token_address.clone())
+                .get(grant.primary_token.clone())
                 .unwrap_or(0);
             if grant.status() == GrantStatus::PendingFunding && primary_balance >= grant.min_funding
             {
@@ -2765,7 +2804,7 @@ impl StellarGrantsContract {
             }
 
             let contract_addr = env.current_contract_address();
-            let client = token::Client::new(&env, &grant.token_address);
+            let client = token::Client::new(&env, &grant.primary_token);
             client.transfer(&reviewer, &contract_addr, &amount);
 
             let current = Storage::get_reviewer_stake(&env, grant_id, &reviewer);
@@ -2791,7 +2830,7 @@ impl StellarGrantsContract {
             }
 
             let treasury = Storage::get_treasury(&env).ok_or(ContractError::InvalidInput)?;
-            let client = token::Client::new(&env, &grant.token_address);
+            let client = token::Client::new(&env, &grant.primary_token);
             client.transfer(&env.current_contract_address(), &treasury, &stake);
 
             Storage::set_reviewer_stake(&env, grant_id, &reviewer, 0);
@@ -2813,7 +2852,7 @@ impl StellarGrantsContract {
                 return Err(ContractError::StakeNotFound);
             }
 
-            let client = token::Client::new(&env, &grant.token_address);
+            let client = token::Client::new(&env, &grant.primary_token);
             client.transfer(&env.current_contract_address(), &reviewer, &stake);
 
             Storage::set_reviewer_stake(&env, grant_id, &reviewer, 0);
@@ -2882,7 +2921,7 @@ impl StellarGrantsContract {
                     .checked_add(amount)
                     .ok_or(ContractError::InvalidInput)?;
                 if grant.hard_cap > 0
-                    && token == grant.token_address
+                    && token == grant.primary_token
                     && new_balance > grant.hard_cap
                 {
                     return Err(ContractError::CapReached);
@@ -2910,7 +2949,7 @@ impl StellarGrantsContract {
                 // Auto-activate if threshold met
                 let primary_balance = grant
                     .escrow_balances
-                    .get(grant.token_address.clone())
+                    .get(grant.primary_token.clone())
                     .unwrap_or(0);
                 if grant.status() == GrantStatus::PendingFunding
                     && primary_balance >= grant.min_funding
@@ -3483,7 +3522,7 @@ fn apply_open_bounty_submission(
         }
     }
 
-    let payout = payout_token.unwrap_or_else(|| grant.token_address.clone());
+    let payout = payout_token.unwrap_or_else(|| grant.primary_token.clone());
     ensure_token_interface(env, &payout)?;
 
     let entry = BountySubmissionEntry {

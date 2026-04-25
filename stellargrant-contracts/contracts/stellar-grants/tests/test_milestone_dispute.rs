@@ -57,7 +57,7 @@ fn test_dispute_and_resolve_flow() {
     client.dispute_milestone(&grant_id, &0, &owner);
     client.resolve_dispute(&council, &grant_id, &0, &true);
     let milestone = client.get_milestone(&grant_id, &0);
-    assert_eq!(milestone.state, MilestoneState::Resolved);
+    assert_eq!(milestone.state(), MilestoneState::Resolved);
 }
 
 #[test]

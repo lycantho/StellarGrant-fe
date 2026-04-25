@@ -521,10 +521,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "packed_config"
+                      "symbol": "packed_stats"
                     },
                     "val": {
                       "u128": "18446744078004518913"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "primary_token"
+                    },
+                    "val": {
+                      "address": "CACMVW2KK4H5FZDFF2AUCAKQTEJMZZWJUIZF23XMRVYQBSXYLHZ6BKWN"
                     }
                   },
                   {
@@ -567,14 +575,6 @@
                     },
                     "val": {
                       "string": "Delegation Test"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "token_address"
-                    },
-                    "val": {
-                      "address": "CACMVW2KK4H5FZDFF2AUCAKQTEJMZZWJUIZF23XMRVYQBSXYLHZ6BKWN"
                     }
                   },
                   {
@@ -773,10 +773,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
-                      "u128": "4294967296"
+                      "u128": "4294967304"
                     }
                   },
                   {
@@ -786,6 +794,12 @@
                     "val": {
                       "address": "CACMVW2KK4H5FZDFF2AUCAKQTEJMZZWJUIZF23XMRVYQBSXYLHZ6BKWN"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -801,14 +815,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 8
                     }
                   },
                   {

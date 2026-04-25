@@ -394,10 +394,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "packed_config"
+                      "symbol": "packed_stats"
                     },
                     "val": {
                       "u128": "55340232229718589441"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "primary_token"
+                    },
+                    "val": {
+                      "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
                   },
                   {
@@ -446,14 +454,6 @@
                     },
                     "val": {
                       "string": "Test Grant"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "token_address"
-                    },
-                    "val": {
-                      "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
                   },
                   {
@@ -652,10 +652,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
-                      "u128": "4294967296"
+                      "u128": "4294967297"
                     }
                   },
                   {
@@ -665,6 +673,12 @@
                     "val": {
                       "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -680,14 +694,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 1
                     }
                   },
                   {
@@ -810,10 +816,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
-                      "u128": "1"
+                      "u128": "0"
                     }
                   },
                   {
@@ -823,6 +837,12 @@
                     "val": {
                       "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -836,14 +856,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 0
                     }
                   },
                   {
@@ -957,10 +969,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 2
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
-                      "u128": "2"
+                      "u128": "0"
                     }
                   },
                   {
@@ -970,6 +990,12 @@
                     "val": {
                       "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -983,14 +1009,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 0
                     }
                   },
                   {

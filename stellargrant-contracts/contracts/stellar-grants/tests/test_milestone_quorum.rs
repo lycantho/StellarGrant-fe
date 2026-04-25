@@ -47,7 +47,7 @@ fn test_milestone_voting_quorum_and_events() {
     token_admin.mint(&owner, &1000);
     client.grant_fund(&grant_id, &owner, &100, &token_id, &None);
 
-    let _ = client.milestone_submit(
+    client.milestone_submit(
         &grant_id,
         &0,
         &owner,
@@ -69,7 +69,7 @@ fn test_milestone_voting_quorum_and_events() {
         &None,
         &None,
     );
-    assert_eq!(res1, false); // Quorum not reached yet
+    assert!(!res1); // Quorum not reached yet
     let res2 = client.milestone_vote(
         &grant_id,
         &0,
@@ -78,18 +78,18 @@ fn test_milestone_voting_quorum_and_events() {
         &None,
         &None,
     );
-    assert_eq!(res2, true);
+    assert!(res2);
 
     let milestone = client.get_milestone(&grant_id, &0);
     // Awaiting payout after quorum
-    assert_eq!(milestone.state, MilestoneState::AwaitingPayout);
+    assert_eq!(milestone.state(), MilestoneState::AwaitingPayout);
 
     env.ledger()
         .set_timestamp(env.ledger().timestamp() + stellar_grants::CHALLENGE_PERIOD + 1);
     client.milestone_payout(&grant_id, &0, &owner);
 
     let paid_milestone = client.get_milestone(&grant_id, &0);
-    assert_eq!(paid_milestone.state, MilestoneState::Paid);
+    assert_eq!(paid_milestone.state(), MilestoneState::Paid);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn test_milestone_vote_after_quorum_panics() {
         &false,
     );
     client.grant_accept(&grant_id, &owner);
-    let _ = client.milestone_submit(
+    client.milestone_submit(
         &grant_id,
         &0,
         &owner,
@@ -211,7 +211,7 @@ fn test_milestone_double_voting_panics() {
 
     client.grant_accept(&grant_id, &owner);
 
-    let _ = client.milestone_submit(
+    client.milestone_submit(
         &grant_id,
         &0,
         &owner,

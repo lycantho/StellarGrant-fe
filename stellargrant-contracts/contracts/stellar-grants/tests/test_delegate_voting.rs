@@ -250,5 +250,5 @@ fn test_delegated_vote_uses_reviewer_slot_for_double_vote_protection() {
             },
         }])
         .try_milestone_vote(&grant_id, &0, &reviewer, &true, &feedback, &None);
-    assert_eq!(second_vote, Err(Ok(ContractError::AlreadyVoted.into())));
+    assert_eq!(second_vote, Err(Ok(ContractError::AlreadyVoted)));
 }

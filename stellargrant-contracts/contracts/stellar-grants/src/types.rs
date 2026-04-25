@@ -53,6 +53,16 @@ pub enum ContractError {
     DisputeFeeInsufficient = 37,
     /// Dispute fee has already been charged for this milestone.
     DisputeAlreadyCharged = 38,
+    ExtensionDenied = 39,
+    DeadlineNotSet = 40,
+    ExpiryNotReached = 41,
+    RoleAlreadyAssigned = 42,
+    RoleNotAssigned = 43,
+    HeartbeatNotStale = 44,
+    DuplicateBountySubmitter = 45,
+    ContributorProfileRequired = 46,
+    BountySubmissionsCap = 47,
+    InvalidTokenInterface = 48,
 }
 
 #[contracttype]
@@ -156,6 +166,10 @@ pub enum MilestoneState {
     Challenged = 9,
     /// Snapshot voting period where funders must vote on milestone approval.
     FunderVoting = 10,
+    /// Milestone has expired due to deadline passing.
+    Expired = 11,
+    /// Milestone funds were claimed by funders after expiry.
+    ExpiredClaimed = 12,
 }
 
 #[contracttype]
@@ -170,8 +184,12 @@ pub struct Milestone {
     pub status_updated_at: u64,
     pub proof_url: Option<String>,
     pub submission_timestamp: u64,
-    pub deadline: u64,
+    pub deadline_timestamp: u64,
     pub community_comments: Map<Address, String>,
+    pub additional_funds: Map<Address, i128>,
+    pub top_up_contributions: Vec<MilestoneTopUp>,
+    pub bounty_winner: Option<Address>,
+    pub proof_hash: Option<soroban_sdk::BytesN<32>>,
     pub packed_stats: u128,
 }
 
@@ -181,7 +199,7 @@ impl Milestone {
         description: String,
         amount: i128,
         payout_token: Address,
-        deadline: u64,
+        deadline_timestamp: u64,
         env: &soroban_sdk::Env,
     ) -> Self {
         let mut m = Self {
@@ -194,8 +212,12 @@ impl Milestone {
             status_updated_at: 0,
             proof_url: None,
             submission_timestamp: 0,
-            deadline,
+            deadline_timestamp,
             community_comments: Map::new(env),
+            additional_funds: Map::new(env),
+            top_up_contributions: Vec::new(env),
+            bounty_winner: None,
+            proof_hash: None,
             packed_stats: 0,
         };
         m.set_state(MilestoneState::Pending);
@@ -218,6 +240,8 @@ impl Milestone {
             8 => MilestoneState::AwaitingPayout,
             9 => MilestoneState::Challenged,
             10 => MilestoneState::FunderVoting,
+            11 => MilestoneState::Expired,
+            12 => MilestoneState::ExpiredClaimed,
             _ => MilestoneState::Pending,
         }
     }
@@ -309,6 +333,7 @@ pub struct Grant {
     pub min_funding: i128,
     pub hard_cap: i128,
     pub tags: Vec<String>,
+    pub is_open_bounty: bool,
     pub packed_stats: u128,
 }
 
@@ -350,6 +375,7 @@ impl Grant {
             min_funding,
             hard_cap,
             tags,
+            is_open_bounty: false,
             packed_stats: 0,
         };
         g.set_status(status);
@@ -424,4 +450,77 @@ pub struct DisputeInfo {
     pub payer: Address,
     pub fee_amount: i128,
     pub fee_token: Address,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BountySubmissionEntry {
+    pub submitter: Address,
+    pub description: String,
+    pub proof_url: String,
+    pub payout_token: Address,
+    pub submission_timestamp: u64,
+    pub votes: Map<Address, bool>,
+    pub reasons: Map<Address, String>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExtensionRequest {
+    pub requester: Address,
+    pub new_deadline: u64,
+    pub approvals: Map<Address, bool>,
+    pub approvals_count: u32,
+}
+
+impl ExtensionRequest {
+    pub fn new(env: &soroban_sdk::Env, requester: Address, new_deadline: u64) -> Self {
+        Self {
+            requester,
+            new_deadline,
+            approvals: Map::new(env),
+            approvals_count: 0,
+        }
+    }
+}
+
+#[contracttype]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum Role {
+    Admin = 0,
+    Reviewer = 1,
+    Contributor = 2,
+    GrantCreator = 3,
+    Pauser = 4,
+}
+
+/// Packed bitfield storing which roles an address has been granted.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct AccessControl {
+    pub role_flags: u32,
+}
+
+impl AccessControl {
+    pub fn has_role(&self, role: Role) -> bool {
+        (self.role_flags >> (role as u32)) & 1 == 1
+    }
+
+    pub fn grant(&mut self, role: Role) {
+        self.role_flags |= 1 << (role as u32);
+    }
+
+    pub fn revoke(&mut self, role: Role) {
+        self.role_flags &= !(1 << (role as u32));
+    }
+}
+
+/// Records a single funder top-up contribution to a specific milestone.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MilestoneTopUp {
+    pub funder: Address,
+    pub token: Address,
+    pub amount: i128,
 }

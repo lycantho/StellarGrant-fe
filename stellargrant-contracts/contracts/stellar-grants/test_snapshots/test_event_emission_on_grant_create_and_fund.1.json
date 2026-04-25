@@ -413,10 +413,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "packed_config"
+                      "symbol": "packed_stats"
                     },
                     "val": {
                       "u128": "18446744078004518913"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "primary_token"
+                    },
+                    "val": {
+                      "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
                   },
                   {
@@ -459,14 +467,6 @@
                     },
                     "val": {
                       "string": "Event Grant"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "token_address"
-                    },
-                    "val": {
-                      "address": "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN"
                     }
                   },
                   {
@@ -665,6 +665,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
@@ -681,6 +689,12 @@
                   },
                   {
                     "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
+                  },
+                  {
+                    "key": {
                       "symbol": "proof_url"
                     },
                     "val": "void"
@@ -691,14 +705,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 0
                     }
                   },
                   {

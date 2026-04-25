@@ -687,7 +687,7 @@
                       "symbol": "role_flags"
                     },
                     "val": {
-                      "u32": 9
+                      "u32": 17
                     }
                   }
                 ]
@@ -1028,10 +1028,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "packed_config"
+                      "symbol": "packed_stats"
                     },
                     "val": {
                       "u128": "79228162532711081671548469249"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "primary_token"
+                    },
+                    "val": {
+                      "address": "CDS3FDGQ4JA2V3F26Y4BMWWJEC5TT26RJBN7KIQKUMVO2MAOCMDTSZ7A"
                     }
                   },
                   {
@@ -1074,14 +1082,6 @@
                     },
                     "val": {
                       "string": "G"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "token_address"
-                    },
-                    "val": {
-                      "address": "CDS3FDGQ4JA2V3F26Y4BMWWJEC5TT26RJBN7KIQKUMVO2MAOCMDTSZ7A"
                     }
                   },
                   {
@@ -1280,10 +1280,18 @@
                   },
                   {
                     "key": {
+                      "symbol": "idx"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "packed_stats"
                     },
                     "val": {
-                      "u128": "4294967296"
+                      "u128": "4294967299"
                     }
                   },
                   {
@@ -1293,6 +1301,12 @@
                     "val": {
                       "address": "CDS3FDGQ4JA2V3F26Y4BMWWJEC5TT26RJBN7KIQKUMVO2MAOCMDTSZ7A"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "proof_hash"
+                    },
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -1308,14 +1322,6 @@
                     },
                     "val": {
                       "map": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "state"
-                    },
-                    "val": {
-                      "u32": 3
                     }
                   },
                   {
@@ -1494,7 +1500,7 @@
                     "symbol": "RoleMemberCount"
                   },
                   {
-                    "u32": 1
+                    "u32": 0
                   }
                 ]
               },
@@ -1521,7 +1527,7 @@
                     "symbol": "RoleMemberCount"
                   },
                   {
-                    "u32": 8
+                    "u32": 4
                   }
                 ]
               },
