@@ -6,6 +6,7 @@ export type SorobanGrant = {
   totalAmount: string;
   /** Comma-separated tag string, e.g. "web3,climate,open-source" */
   tags?: string | null;
+  localizedMetadata?: Record<string, { title?: string; description?: string }> | null;
 };
 
 export type ContributorScore = {

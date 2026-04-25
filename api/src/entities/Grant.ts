@@ -28,6 +28,9 @@ export class Grant {
   @Column({ type: "text", nullable: true })
   tags!: string | null;
 
+  @Column({ type: "simple-json", nullable: true })
+  localizedMetadata!: Record<string, { title?: string; description?: string }> | null;
+
   @UpdateDateColumn()
   updatedAt!: Date;
 

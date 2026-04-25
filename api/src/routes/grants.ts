@@ -55,6 +55,23 @@ function parseTags(raw: unknown): string[] {
   )];
 }
 
+function getPreferredLanguage(header: string | undefined): string {
+  if (!header) return "en";
+  const langs = header.split(",").map(l => l.split(";")[0].trim().toLowerCase());
+  return langs[0] || "en";
+}
+
+function localizeGrant(grant: Grant, lang: string) {
+  const metadata = grant.localizedMetadata || {};
+  const translation = metadata[lang] || metadata["en"] || {};
+  
+  return {
+    ...grant,
+    title: translation.title || grant.title,
+    description: translation.description || null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -68,6 +85,7 @@ export const buildGrantRouter = (
   router.get("/", async (req, res, next) => {
     try {
       await syncService.syncAllGrants();
+      const lang = getPreferredLanguage(req.header("accept-language"));
 
       // ---------------- Pagination ----------------
       const pagination = parsePagination(req.query.page, req.query.limit);
@@ -136,7 +154,7 @@ export const buildGrantRouter = (
       const [data, total] = await qb.getManyAndCount();
 
       res.json({
-        data,
+        data: data.map(g => localizeGrant(g, lang)),
         meta: {
           total,
           page,
@@ -159,6 +177,7 @@ export const buildGrantRouter = (
       }
 
       await syncService.syncGrant(id);
+      const lang = getPreferredLanguage(req.header("accept-language"));
 
       const grant = await grantRepo.findOne({ where: { id } });
 
@@ -167,7 +186,7 @@ export const buildGrantRouter = (
         return;
       }
 
-      res.json({ data: grant });
+      res.json({ data: localizeGrant(grant, lang) });
     } catch (error) {
       next(error);
     }
