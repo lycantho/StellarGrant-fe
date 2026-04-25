@@ -281,6 +281,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "is_open_bounty"
+                    },
+                    "val": {
+                      "bool": false
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "last_heartbeat"
                     },
                     "val": {
@@ -293,14 +301,6 @@
                     },
                     "val": {
                       "i128": "50"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "milestones_paid_out"
-                    },
-                    "val": {
-                      "u32": 0
                     }
                   },
                   {
@@ -321,18 +321,10 @@
                   },
                   {
                     "key": {
-                      "symbol": "primary_token"
+                      "symbol": "packed_config"
                     },
                     "val": {
-                      "address": "CBUSYNQKASUYFWYC3M2GUEDMX4AIVWPALDBYJPNK6554BREHTGZ2IUNF"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "quorum"
-                    },
-                    "val": {
-                      "u32": 1
+                      "u128": "2"
                     }
                   },
                   {
@@ -349,14 +341,6 @@
                     },
                     "val": {
                       "vec": []
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "status"
-                    },
-                    "val": {
-                      "u32": 2
                     }
                   },
                   {
@@ -385,18 +369,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "total_amount"
+                      "symbol": "token_address"
                     },
                     "val": {
-                      "i128": "150"
+                      "address": "CBUSYNQKASUYFWYC3M2GUEDMX4AIVWPALDBYJPNK6554BREHTGZ2IUNF"
                     }
                   },
                   {
                     "key": {
-                      "symbol": "total_milestones"
+                      "symbol": "total_amount"
                     },
                     "val": {
-                      "u32": 3
+                      "i128": "150"
                     }
                   }
                 ]

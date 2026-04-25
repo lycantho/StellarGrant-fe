@@ -71,6 +71,42 @@
               "key": {
                 "vec": [
                   {
+                    "symbol": "AccessControl"
+                  },
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "role_flags"
+                    },
+                    "val": {
+                      "u32": 9
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
                     "symbol": "Council"
                   }
                 ]
@@ -186,6 +222,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "is_open_bounty"
+                    },
+                    "val": {
+                      "bool": false
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "last_heartbeat"
                     },
                     "val": {
@@ -198,14 +242,6 @@
                     },
                     "val": {
                       "i128": "500"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "milestones_paid_out"
-                    },
-                    "val": {
-                      "u32": 0
                     }
                   },
                   {
@@ -226,18 +262,10 @@
                   },
                   {
                     "key": {
-                      "symbol": "primary_token"
+                      "symbol": "packed_config"
                     },
                     "val": {
-                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "quorum"
-                    },
-                    "val": {
-                      "u32": 1
+                      "u128": "18446744078004518913"
                     }
                   },
                   {
@@ -256,14 +284,6 @@
                           "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
                         }
                       ]
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "status"
-                    },
-                    "val": {
-                      "u32": 1
                     }
                   },
                   {
@@ -292,18 +312,18 @@
                   },
                   {
                     "key": {
-                      "symbol": "total_amount"
+                      "symbol": "token_address"
                     },
                     "val": {
-                      "i128": "1000"
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
                     }
                   },
                   {
                     "key": {
-                      "symbol": "total_milestones"
+                      "symbol": "total_amount"
                     },
                     "val": {
-                      "u32": 1
+                      "i128": "1000"
                     }
                   }
                 ]
@@ -339,6 +359,14 @@
                 "map": [
                   {
                     "key": {
+                      "symbol": "additional_funds"
+                    },
+                    "val": {
+                      "map": []
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "amount"
                     },
                     "val": {
@@ -347,11 +375,9 @@
                   },
                   {
                     "key": {
-                      "symbol": "approvals"
+                      "symbol": "bounty_winner"
                     },
-                    "val": {
-                      "u32": 0
-                    }
+                    "val": "void"
                   },
                   {
                     "key": {
@@ -363,15 +389,7 @@
                   },
                   {
                     "key": {
-                      "symbol": "community_upvotes"
-                    },
-                    "val": {
-                      "u32": 0
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "deadline"
+                      "symbol": "deadline_timestamp"
                     },
                     "val": {
                       "u64": "0"
@@ -387,10 +405,10 @@
                   },
                   {
                     "key": {
-                      "symbol": "idx"
+                      "symbol": "packed_stats"
                     },
                     "val": {
-                      "u32": 0
+                      "u128": "0"
                     }
                   },
                   {
@@ -419,14 +437,6 @@
                   },
                   {
                     "key": {
-                      "symbol": "rejections"
-                    },
-                    "val": {
-                      "u32": 0
-                    }
-                  },
-                  {
-                    "key": {
                       "symbol": "state"
                     },
                     "val": {
@@ -451,6 +461,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "top_up_contributions"
+                    },
+                    "val": {
+                      "vec": []
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "votes"
                     },
                     "val": {
@@ -458,6 +476,60 @@
                     }
                   }
                 ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "RoleMemberCount"
+                  },
+                  {
+                    "u32": 1
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u32": 1
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 1000000
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "symbol": "RoleMemberCount"
+                  },
+                  {
+                    "u32": 8
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "u32": 1
               }
             }
           },
