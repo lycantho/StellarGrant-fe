@@ -1,4 +1,4 @@
-import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from "typeorm";
 
 @Entity({ name: "user_watchlist" })
 @Index("IDX_user_watchlist_address", ["address"])
@@ -11,6 +11,6 @@ export class UserWatchlist {
   @PrimaryColumn({ type: "int" })
   grantId!: number;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @CreateDateColumn()
   createdAt!: Date;
 }
