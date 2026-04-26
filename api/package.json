@@ -13,6 +13,7 @@
     "@stellar/stellar-sdk": "^13.3.0",
     "dotenv": "^16.4.7",
     "express": "^4.22.1",
+    "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "pg": "^8.13.3",
     "reflect-metadata": "^0.2.2",
@@ -27,7 +28,7 @@
     "sql.js": "^1.14.1",
     "supertest": "^7.1.0",
     "tsx": "^4.19.3",
-    "typescript": "^5.8.2",
+    "typescript": "^5.9.3",
     "vitest": "^3.0.8"
   }
 }

@@ -1,5 +1,6 @@
 import { Column, Entity, Index, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { MilestoneProof } from "./MilestoneProof";
+import { GrantReviewer } from "./GrantReviewer";
 
 @Entity({ name: "grants" })
 @Index("IDX_grants_status", ["status"])
@@ -33,4 +34,7 @@ export class Grant {
 
   @OneToMany(() => MilestoneProof, (proof) => proof.grant)
   proofs!: MilestoneProof[];
+
+  @OneToMany(() => GrantReviewer, (reviewer) => reviewer.grant)
+  reviewers!: GrantReviewer[];
 }

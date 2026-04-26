@@ -3,6 +3,9 @@ import { DataSource } from "typeorm";
 import { env } from "../config/env";
 import { Grant } from "../entities/Grant";
 import { MilestoneProof } from "../entities/MilestoneProof";
+import { User } from "../entities/User";
+import { GrantReviewer } from "../entities/GrantReviewer";
+import { MilestoneApproval } from "../entities/MilestoneApproval";
 
 export const buildDataSource = (databaseUrl = env.databaseUrl) =>
   new DataSource({
@@ -10,6 +13,6 @@ export const buildDataSource = (databaseUrl = env.databaseUrl) =>
     ...(databaseUrl.startsWith("sqljs")
       ? { location: databaseUrl.replace("sqljs://", ""), autoSave: false }
       : { url: databaseUrl }),
-    entities: [Grant, MilestoneProof],
+  entities: [Grant, MilestoneProof, User, GrantReviewer, MilestoneApproval],
     synchronize: true,
   });

@@ -3,6 +3,9 @@ import { Repository } from "typeorm";
 import { z } from "zod";
 import { MilestoneProof } from "../entities/MilestoneProof";
 import { SignatureService } from "../services/signature-service";
+import { Grant } from "../entities/Grant";
+import { User } from "../entities/User";
+import * as emailService from "../services/email-service";
 
 const milestoneProofSchema = z.object({
   grantId: z.number().int().positive(),
@@ -17,6 +20,8 @@ const milestoneProofSchema = z.object({
 export const buildMilestoneProofRouter = (
   proofRepo: Repository<MilestoneProof>,
   signatureService: SignatureService,
+  grantRepo?: Repository<Grant>,
+  userRepo?: Repository<User>,
 ) => {
   const router = Router();
 
@@ -49,6 +54,41 @@ export const buildMilestoneProofRouter = (
         signature: payload.signature,
         nonce: payload.nonce,
       });
+
+      // Email notification logic
+      if (grantRepo && userRepo) {
+        // Load reviewers relation so we can notify reviewers as well
+        const grant = await grantRepo.findOne({ where: { id: payload.grantId }, relations: ["reviewers"] });
+        if (grant) {
+          const owner = await userRepo.findOne({ where: { stellarAddress: grant.recipient } });
+          if (owner && owner.email && owner.notifyMilestoneSubmitted) {
+            const emailData = {
+              grantTitle: grant.title,
+              milestoneTitle: `#${payload.milestoneIdx}`,
+            };
+            const { subject, html } = emailService.getEmailTemplate('milestone_submitted', emailData);
+            await emailService.sendEmail({ to: owner.email, subject, html });
+          }
+
+          // Notify reviewers who opted in
+          if ((grant as any).reviewers && Array.isArray((grant as any).reviewers)) {
+            for (const grReviewer of (grant as any).reviewers) {
+              if (!grReviewer) continue;
+              // Always use reviewerStellarAddress for user lookup
+              if (!grReviewer.reviewerStellarAddress) continue;
+              const reviewerUser = await userRepo.findOne({ where: { stellarAddress: grReviewer.reviewerStellarAddress } });
+              if (reviewerUser && reviewerUser.email && reviewerUser.notifyMilestoneSubmitted) {
+                const emailData = {
+                  grantTitle: grant.title,
+                  milestoneTitle: `#${payload.milestoneIdx}`,
+                };
+                const { subject, html } = emailService.getEmailTemplate('milestone_submitted', emailData);
+                await emailService.sendEmail({ to: reviewerUser.email, subject, html });
+              }
+            }
+          }
+        }
+      }
 
       res.status(201).json({ data: proof });
     } catch (error: any) {
