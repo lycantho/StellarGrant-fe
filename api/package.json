@@ -12,6 +12,7 @@
     "typeorm:sync": "tsx src/scripts/sync-db.ts"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@stellar/stellar-sdk": "^13.3.0",
     "@types/cors": "^2.8.19",
     "@types/morgan": "^1.9.10",
