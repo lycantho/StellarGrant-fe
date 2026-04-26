@@ -2,9 +2,10 @@ import { Column, Entity, Index, OneToMany, PrimaryColumn, UpdateDateColumn } fro
 import { MilestoneProof } from "./MilestoneProof";
 
 @Entity({ name: "grants" })
-@Index("IDX_grants_status", ["status"])
-@Index("IDX_grants_updated_at", ["updatedAt"])
-@Index("IDX_grants_total_amount", ["totalAmount"])
+@Index("IDX_grants_status", ["status"], { synchronize: false })
+@Index("IDX_grants_updated_at", ["updatedAt"], { synchronize: false })
+@Index("IDX_grants_total_amount", ["totalAmount"], { synchronize: false })
+@Index("IDX_grants_search", { synchronize: false, expression: "to_tsvector('english', title || ' ' || COALESCE(tags, '') || ' ' || COALESCE(CAST(localizedMetadata AS TEXT), ''))" })
 export class Grant {
   @PrimaryColumn({ type: "int" })
   id!: number;

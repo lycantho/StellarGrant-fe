@@ -14,6 +14,7 @@ import { buildActivityRouter } from "./routes/activity";
 import { buildProofsRouter } from "./routes/proofs";
 import { buildNotificationsRouter } from "./routes/notifications";
 import { buildAnalyticsRouter } from "./routes/analytics";
+import { buildSearchRouter } from "./routes/search";
 import { GrantSyncService } from "./services/grant-sync-service";
 import { LeaderboardService } from "./services/leaderboard-service";
 import { SignatureService } from "./services/signature-service";
@@ -104,6 +105,7 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   app.use("/proofs", buildProofsRouter(ipfsService));
   app.use("/notifications", buildNotificationsRouter(contributorRepo));
   app.use("/analytics", buildAnalyticsRouter(grantRepo, grantViewRepo));
+  app.use("/search", buildSearchRouter(dataSource));
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const message = err instanceof Error ? err.message : "Internal server error";
