@@ -119,7 +119,7 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
 
   // Apply rate limiting
   app.use(rateLimiter);
-  app.use("/grants", buildGrantRouter(grantRepo, grantSyncService));
+  app.use("/grants", buildGrantRouter(grantRepo, grantSyncService, signatureService));
   app.use("/milestone_proof", buildMilestoneProofRouter(proofRepo, signatureService, grantRepo, userRepo));
   app.use("/users", buildUserRouter(userRepo));
   app.use("/grant_reviewers", buildGrantReviewerRouter(grantReviewerRepo));
