@@ -19,6 +19,31 @@ import {
 // Module-level mock for @stellar/stellar-sdk
 // ---------------------------------------------------------------------------
 jest.mock("@stellar/stellar-sdk", () => {
+  class MockServer {
+    static simulationError: string | null = null;
+    constructor() {}
+    async getAccount() {
+      return { accountId: "GTEST", sequence: "1" };
+    }
+    async simulateTransaction() {
+      if (MockServer.simulationError) {
+        return { error: MockServer.simulationError };
+      }
+      return { result: { retval: { _mock: "ok" } } };
+    }
+    async prepareTransaction(tx: any) {
+      return tx;
+    }
+    async sendTransaction() {
+      return { status: "PENDING", hash: "abc123" };
+    }
+    async getTransaction(hash: string) {
+      if (hash === "fail") return { status: "FAILED" };
+      if (hash === "timeout") return { status: "NOT_FOUND" };
+      return { status: "SUCCESS", hash };
+    }
+  }
+
   return {
     rpc: {
       Server: class {
@@ -325,5 +350,43 @@ describe("invokeWrite option paths", () => {
     await sdk.grantFund(GRANT_FUND, { transactionData: "MOCK_TX_DATA", feeMultiplier: 2 });
 
     expect(mockServer.simulateTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  describe("waitForTransaction", () => {
+    it("resolves on SUCCESS", async () => {
+      const sdk = new StellarGrantsSDK({
+        contractId: "CBLAH",
+        rpcUrl: "https://rpc.test",
+        networkPassphrase: "Test SDF Network ; September 2015",
+        signer,
+      });
+
+      const res = await sdk.waitForTransaction("abc123");
+      expect(res.status).toBe("SUCCESS");
+    });
+
+    it("throws on FAILED", async () => {
+      const sdk = new StellarGrantsSDK({
+        contractId: "CBLAH",
+        rpcUrl: "https://rpc.test",
+        networkPassphrase: "Test SDF Network ; September 2015",
+        signer,
+      });
+
+      await expect(sdk.waitForTransaction("fail")).rejects.toThrow("Transaction failed");
+    });
+
+    it("throws on timeout", async () => {
+      const sdk = new StellarGrantsSDK({
+        contractId: "CBLAH",
+        rpcUrl: "https://rpc.test",
+        networkPassphrase: "Test SDF Network ; September 2015",
+        signer,
+        pollingIntervalMs: 10,
+        pollingTimeoutMs: 50,
+      });
+
+      await expect(sdk.waitForTransaction("timeout")).rejects.toThrow("Transaction timed out");
+    });
   });
 });

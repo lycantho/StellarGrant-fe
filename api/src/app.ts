@@ -15,6 +15,8 @@ import { buildProofsRouter } from "./routes/proofs";
 import { buildNotificationsRouter } from "./routes/notifications";
 import { buildAnalyticsRouter } from "./routes/analytics";
 import { buildSearchRouter } from "./routes/search";
+import { buildWatchlistRouter } from "./routes/watchlist";
+import { UserWatchlist } from "./entities/UserWatchlist";
 import { GrantSyncService } from "./services/grant-sync-service";
 import { ReconciliationService } from "./services/reconciliation-service";
 import { LeaderboardService } from "./services/leaderboard-service";
@@ -23,6 +25,10 @@ import { IpfsService } from "./services/ipfs-service";
 import { Contributor } from "./entities/Contributor";
 import { AuditLog } from "./entities/AuditLog";
 import { GrantView } from "./entities/GrantView";
+import { PlatformConfig } from "./entities/PlatformConfig";
+import { FeeCollection } from "./entities/FeeCollection";
+import { ConfigService } from "./services/config-service";
+import { FeeService } from "./services/fee-service";
 import { buildAdminMiddleware } from "./middlewares/admin-middleware";
 import { SorobanContractClient } from "./soroban/types";
 import { createRateLimiter } from "./middlewares/rate-limiter";
@@ -92,6 +98,10 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   const auditLogRepo = dataSource.getRepository(AuditLog);
   const grantViewRepo = dataSource.getRepository(GrantView);
   const ipfsService = new IpfsService();
+  const configRepo = dataSource.getRepository(PlatformConfig);
+  const feeRepo = dataSource.getRepository(FeeCollection);
+  const configService = new ConfigService(configRepo);
+  const feeService = new FeeService(feeRepo, configRepo);
   const adminMiddleware = buildAdminMiddleware(signatureService);
 
   // Health check endpoint (no versioning)
@@ -108,6 +118,11 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   app.use("/notifications", buildNotificationsRouter(contributorRepo));
   app.use("/analytics", buildAnalyticsRouter(grantRepo, grantViewRepo));
   app.use("/search", buildSearchRouter(dataSource));
+  app.use("/watchlist", buildWatchlistRouter(dataSource.getRepository(UserWatchlist), grantRepo));
+  app.get("/config/fee", async (req, res) => {
+    const fee = await configService.getFeePercentage();
+    res.json({ feePercentage: fee });
+  });
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const message = err instanceof Error ? err.message : "Internal server error";

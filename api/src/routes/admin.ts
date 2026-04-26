@@ -6,6 +6,8 @@ import { ReconciliationService } from "../services/reconciliation-service";
 import { Contributor } from "../entities/Contributor";
 import { AuditLog } from "../entities/AuditLog";
 import { Grant } from "../entities/Grant";
+import { PlatformConfig } from "../entities/PlatformConfig";
+import { FeeCollection } from "../entities/FeeCollection";
 
 const VALID_BULK_ACTIONS = ["approve", "reject", "flag"] as const;
 type BulkAction = (typeof VALID_BULK_ACTIONS)[number];
@@ -21,6 +23,10 @@ const bulkSchema = z.object({
   action: z.enum(VALID_BULK_ACTIONS),
 });
 
+const configSchema = z.object({
+  feePercentage: z.number().min(0).max(100),
+});
+
 export const buildAdminRouter = (
   grantSyncService: GrantSyncService,
   contributorRepo: Repository<Contributor>,
@@ -29,6 +35,8 @@ export const buildAdminRouter = (
 ) => {
   const router = Router();
   const grantRepo: Repository<Grant> = auditLogRepo.manager.getRepository(Grant);
+  const configRepo = auditLogRepo.manager.getRepository(PlatformConfig);
+  const feeRepo = auditLogRepo.manager.getRepository(FeeCollection);
 
   router.post("/sync/:grant_id", async (req, res, next) => {
     try {
@@ -152,26 +160,48 @@ export const buildAdminRouter = (
     }
   });
 
-  /**
-   * POST /admin/reconcile
-   * Manually trigger a reconciliation run. Returns the result immediately.
-   */
-  router.post("/reconcile", async (req, res, next) => {
-    if (!reconciliationService) {
-      res.status(503).json({ error: "Reconciliation service not available" });
-      return;
-    }
+  router.patch("/config", async (req, res, next) => {
     try {
-      const result = await reconciliationService.run();
+      const parsed = configSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid payload", details: parsed.error.issues });
+        return;
+      }
+
+      const { feePercentage } = parsed.data;
+
+      let config = await configRepo.findOne({ where: { key: "platform_fee_percentage" } });
+      if (!config) {
+        config = configRepo.create({ key: "platform_fee_percentage" });
+      }
+      config.value = feePercentage.toString();
+      await configRepo.save(config);
 
       await auditLogRepo.save({
         adminAddress: (req as any).adminAddress,
-        action: "TRIGGER_RECONCILIATION",
-        target: `ledgers:${result.fromLedger}-${result.toLedger}`,
-        details: JSON.stringify(result),
+        action: "UPDATE_CONFIG",
+        target: "platform_fee_percentage",
+        details: `Updated fee percentage to ${feePercentage}%`,
       });
 
-      res.json({ ok: true, result });
+      res.json({ ok: true, feePercentage });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/reports/fees", async (req, res, next) => {
+    try {
+      const fees = await feeRepo.find({ order: { createdAt: "DESC" } });
+      const totalFees = fees.reduce((sum, f) => sum + BigInt(f.feeAmount), BigInt(0));
+
+      res.json({
+        data: {
+          totalCollected: totalFees.toString(),
+          count: fees.length,
+          collections: fees,
+        },
+      });
     } catch (error) {
       next(error);
     }
