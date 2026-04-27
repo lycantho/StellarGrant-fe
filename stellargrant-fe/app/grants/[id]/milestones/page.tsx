@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { MilestoneList } from "@/components/milestones";
+import type { Milestone } from "@/types";
 
 /**
  * Milestone List Page
- * 
+ *
  * Shows all milestones for a grant with their status and progress.
  */
 
@@ -15,18 +16,45 @@ interface MilestonesPageProps {
   };
 }
 
+/** Raw shape returned by the API (subset of the full Milestone type) */
 type MilestoneResponse = {
   idx: number;
   title: string;
-  description: string | null;
-  deadline: string;
-  submitted: boolean;
-  overdue: boolean;
-  daysUntilDeadline: number;
+  description?: string | null;
+  deadline?: string;
+  submitted?: boolean;
+  approved?: boolean;
+  paid?: boolean;
+  proof_hash?: string | null;
+  submitted_at?: bigint | null;
+  approved_at?: bigint | null;
+  paid_at?: bigint | null;
+  overdue?: boolean;
+  daysUntilDeadline?: number;
+  token?: string;
+  amount?: bigint;
 };
 
+/** Normalise a raw API milestone into a full Milestone object */
+function normaliseMilestone(raw: MilestoneResponse): Milestone {
+  return {
+    idx: raw.idx,
+    title: raw.title,
+    description: raw.description ?? "",
+    proof_hash: raw.proof_hash ?? null,
+    submitted: raw.submitted ?? false,
+    approved: raw.approved ?? false,
+    paid: raw.paid ?? false,
+    submitted_at: raw.submitted_at ?? null,
+    approved_at: raw.approved_at ?? null,
+    paid_at: raw.paid_at ?? null,
+    token: raw.token,
+    amount: raw.amount,
+  };
+}
+
 export default function MilestonesPage({ params }: MilestonesPageProps) {
-  const [milestones, setMilestones] = useState<MilestoneResponse[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [title, setTitle] = useState(`Grant #${params.id}`);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +75,8 @@ export default function MilestonesPage({ params }: MilestonesPageProps) {
         }
 
         const payload = await response.json();
-        setMilestones(payload.data?.milestones ?? []);
+        const raw: MilestoneResponse[] = payload.data?.milestones ?? [];
+        setMilestones(raw.map(normaliseMilestone));
         setTitle(payload.data?.title ?? `Grant #${params.id}`);
         setError(null);
       } catch (err) {
@@ -63,6 +92,7 @@ export default function MilestonesPage({ params }: MilestonesPageProps) {
     void loadGrant();
     return () => controller.abort();
   }, [params.id]);
+
 
   return (
     <div className="container mx-auto px-4 py-8">

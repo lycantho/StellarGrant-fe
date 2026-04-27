@@ -18,13 +18,13 @@ interface MilestoneListProps {
   grantToken?: string; // Fallback token if milestone doesn't specify one
 }
 
-interface MilestoneDisplay extends MilestoneType {
+interface _MilestoneDisplay extends MilestoneType {
   statusLabel: string;
   tokenSymbol: string;
   amountFormatted: string;
 }
 
-export function MilestoneList({ milestones, grantId, grantToken }: MilestoneListProps) {
+export function MilestoneList({ milestones, grantId: _grantId, grantToken }: MilestoneListProps) {
   const [tokenMetadataMap, setTokenMetadataMap] = useState<Map<string, TokenMetadata>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
@@ -60,7 +60,7 @@ export function MilestoneList({ milestones, grantId, grantToken }: MilestoneList
     if (milestone.approved) return "Approved";
     if (milestone.submitted) return "Submitted";
     if (milestone.overdue) return "Overdue";
-    if (milestone.daysUntilDeadline <= 7) return "Due Soon";
+    if ((milestone.daysUntilDeadline ?? Infinity) <= 7) return "Due Soon";
     return "Pending";
   };
 
@@ -119,7 +119,7 @@ export function MilestoneList({ milestones, grantId, grantToken }: MilestoneList
         const statusLabel = getMilestoneStatus(milestone);
         const statusColor = getStatusColor(statusLabel);
         const amountFormatted = formatMilestoneAmount(milestone);
-        const tokenSymbol = getTokenSymbol(milestone);
+        const _tokenSymbol = getTokenSymbol(milestone);
 
         return (
           <div

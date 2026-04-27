@@ -4,7 +4,7 @@
  * Helper functions for token formatting, parsing, and calculations.
  */
 
-import { TokenMetadata } from "@/types";
+import type { TokenMetadata as _TokenMetadata } from "@/types";
 
 /**
  * Format a token amount for display
