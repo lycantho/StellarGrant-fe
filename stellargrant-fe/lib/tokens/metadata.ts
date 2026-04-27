@@ -47,7 +47,7 @@ export async function getTokenMetadata(tokenAddress: string): Promise<TokenMetad
 
   // Check if it's a known symbol (case-insensitive)
   const upperSymbol = tokenAddress.toUpperCase();
-  for (const [key, metadata] of Object.entries(WELL_KNOWN_TOKENS)) {
+  for (const [_key, metadata] of Object.entries(WELL_KNOWN_TOKENS)) {
     if (metadata.symbol.toUpperCase() === upperSymbol) {
       tokenMetadataCache.set(tokenAddress, metadata);
       return metadata;

@@ -20,22 +20,23 @@ interface RichTextRendererProps {
   fallback?: React.ReactNode;
 }
 
+const LOADING_SENTINEL = "__loading__";
+
 export default function RichTextRenderer({
   content,
   className = "",
   fallback,
 }: RichTextRendererProps) {
-  const [safeHtml, setSafeHtml] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
+  // Use a sentinel value to track loading state without a separate boolean.
+  // This avoids calling setState synchronously inside the effect body.
+  const [safeHtml, setSafeHtml] = useState<string>(LOADING_SENTINEL);
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
 
     markdownToSafeHtml(content).then((html) => {
       if (!cancelled) {
         setSafeHtml(html);
-        setIsLoading(false);
       }
     });
 
@@ -44,7 +45,7 @@ export default function RichTextRenderer({
     };
   }, [content]);
 
-  if (isLoading) {
+  if (safeHtml === LOADING_SENTINEL) {
     return (
       fallback ?? (
         <div className="animate-pulse space-y-2">

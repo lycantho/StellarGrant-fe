@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Milestone, Grant, TokenMetadata } from "@/types";
+import { Milestone, Grant as _Grant, TokenMetadata as _TokenMetadata } from "@/types";
 import { formatTokenAmount } from "@/lib/tokens";
 
 describe("Multi-Token Milestone Handling", () => {
@@ -77,7 +77,7 @@ describe("Multi-Token Milestone Handling", () => {
 
   describe("grant with multiple token milestones", () => {
     it("should support milestones with mixed tokens", () => {
-      const grant: Grant = {
+      const _grant: _Grant = {
         id: "1",
         owner: "GABC123",
         title: "Multi-Token Grant",

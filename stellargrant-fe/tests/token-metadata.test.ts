@@ -4,7 +4,7 @@
  * Tests for getTokenMetadata, caching, and batch operations.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   getTokenMetadata,
   getTokenMetadataBatch,

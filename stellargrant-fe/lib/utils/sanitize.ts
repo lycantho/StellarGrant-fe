@@ -44,7 +44,7 @@ const DOMPURIFY_CONFIG = {
 function resolveDOMPurify(): { sanitize: (html: string, cfg?: object) => string } | null {
   if (typeof window === "undefined") return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("dompurify");
     const purify = mod?.default ?? mod;
     if (typeof purify?.sanitize === "function") return purify;
