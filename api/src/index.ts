@@ -8,6 +8,7 @@ import { ReconciliationService } from "./services/reconciliation-service";
 import { GrantSyncService } from "./services/grant-sync-service";
 import { MilestoneDeadlineService } from "./services/milestone-deadline-service";
 import { logger } from "./config/logger";
+import { RateLimitAlertService } from "./services/rate-limit-alert-service";
 
 const bootstrap = async () => {
   const dataSource = buildDataSource();
@@ -27,6 +28,12 @@ const bootstrap = async () => {
   reconciliationService.start(30 * 60 * 1000);
   milestoneDeadlineService.start(24 * 60 * 60 * 1000);
 
+  // Periodic rate limit spike alerts
+  const rateLimitAlertService = new RateLimitAlertService(dataSource);
+  const alertTimer = setInterval(() => {
+    rateLimitAlertService.checkOnce().catch(() => {});
+  }, 60 * 1000);
+
   server.listen(env.port, () => {
     logger.info(`API listening on port ${env.port}`);
   });
@@ -34,7 +41,7 @@ const bootstrap = async () => {
   // Graceful shutdown
   const shutdown = () => {
     reconciliationService.stop();
-    milestoneDeadlineService.stop();
+    clearInterval(alertTimer);
     server.close(() => process.exit(0));
   };
   process.once("SIGTERM", shutdown);

@@ -15,8 +15,7 @@ import { Activity } from "../entities/Activity";
 
 import { GrantView } from "../entities/GrantView";
 import { ReconciliationCheckpoint } from "../entities/ReconciliationCheckpoint";
-import { FeeCollection } from "../entities/FeeCollection";
-
+import { RateLimitLog } from "../entities/RateLimitLog";
 
 export const buildDataSource = (databaseUrl = env.databaseUrl) =>
   new DataSource({
@@ -24,7 +23,7 @@ export const buildDataSource = (databaseUrl = env.databaseUrl) =>
     ...(databaseUrl.startsWith("sqljs")
       ? { location: databaseUrl.replace("sqljs://", ""), autoSave: false }
       : { url: databaseUrl }),
-    entities: [Grant, Milestone, MilestoneProof, Contributor, ReputationLog, AuditLog, UserWatchlist, Activity, GrantView, ReconciliationCheckpoint],
+    entities: [Grant, MilestoneProof, Contributor, ReputationLog, AuditLog, UserWatchlist, Activity, GrantView, ReconciliationCheckpoint, RateLimitLog],
     synchronize: true,
   });
 
