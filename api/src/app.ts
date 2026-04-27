@@ -110,6 +110,7 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   const reconciliationService = new ReconciliationService(dataSource, sorobanClient, grantSyncService);
   const signatureService = new SignatureService();
   const leaderboardService = new LeaderboardService(dataSource);
+  const responseCache = new ResponseCacheService(env.redisUrl);
 
   const contributorRepo = dataSource.getRepository(Contributor);
   const auditLogRepo = dataSource.getRepository(AuditLog);
@@ -126,14 +127,12 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
 
   // Apply rate limiting
   app.use(rateLimiter);
-  app.use("/grants", buildGrantRouter(grantRepo, grantSyncService, signatureService));
-  app.use("/milestone_proof", buildMilestoneProofRouter(proofRepo, signatureService, grantRepo, userRepo));
+  app.use("/grants", buildGrantRouter(grantRepo, milestoneRepo, proofRepo, grantSyncService, signatureService, responseCache));
+  app.use("/milestone_proof", buildMilestoneProofRouter(proofRepo, signatureService, responseCache, grantRepo, userRepo));
   app.use("/users", buildUserRouter(userRepo));
   app.use("/grant_reviewers", buildGrantReviewerRouter(grantReviewerRepo));
   app.use("/milestone_approvals", buildMilestoneApprovalRouter(milestoneApprovalRepo));
    app.use("/milestone_approvals_notify", buildMilestoneApprovalNotifyRouter(milestoneApprovalRepo, grantRepo, userRepo));
-  app.use("/grants", buildGrantRouter(grantRepo, grantSyncService, signatureService));
-  app.use("/milestone_proof", buildMilestoneProofRouter(proofRepo, signatureService));
   app.use("/leaderboard", buildLeaderboardRouter(leaderboardService));
   app.use("/activity", buildActivityRouter(activityRepo, contributorRepo));
   app.use(
@@ -141,6 +140,8 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
     adminMiddleware,
     buildAdminRouter(grantSyncService, contributorRepo, auditLogRepo, responseCache, reconciliationService),
   );
+  app.use("/stats", buildStatsRouter(grantRepo, proofRepo, responseCache));
+  app.use("/api/stats", buildStatsRouter(grantRepo, proofRepo, responseCache));
   app.use("/proofs", buildProofsRouter(ipfsService));
   app.use("/notifications", buildNotificationsRouter(contributorRepo));
   app.use("/dashboard", buildDashboardRouter(grantRepo, milestoneRepo, proofRepo, grantSyncService));

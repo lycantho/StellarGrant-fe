@@ -38,4 +38,7 @@ export class Grant {
 
   @OneToMany(() => Milestone, (milestone) => milestone.grant)
   milestones!: Milestone[];
+
+  @OneToMany(() => GrantReviewer, (reviewer) => reviewer.grant)
+  reviewers!: GrantReviewer[];
 }

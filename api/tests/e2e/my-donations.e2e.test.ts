@@ -7,6 +7,10 @@ import { FeeCollection } from "../../src/entities/FeeCollection";
 import { Grant } from "../../src/entities/Grant";
 import { MilestoneProof } from "../../src/entities/MilestoneProof";
 import { GrantReviewer } from "../../src/entities/GrantReviewer";
+import { Milestone } from "../../src/entities/Milestone";
+import { Contributor } from "../../src/entities/Contributor";
+import { User } from "../../src/entities/User";
+import { MilestoneApproval } from "../../src/entities/MilestoneApproval";
 
 const TEST_ADDRESS = "GTESTFUNDERTOKEN123";
 const OTHER_ADDRESS = "GOTHERFUNDERTOKEN456";
@@ -69,7 +73,7 @@ describe("GET /my-donations", () => {
       type: "sqljs",
       location: "memory",
       autoSave: false,
-      entities: [Grant, FeeCollection, MilestoneProof, GrantReviewer],
+      entities: [Grant, Milestone, FeeCollection, MilestoneProof, GrantReviewer, Contributor, User, MilestoneApproval],
       synchronize: true,
     };
     dataSource = new DataSource(options);

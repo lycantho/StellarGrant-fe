@@ -12,6 +12,7 @@ import { SignatureService } from "../services/signature-service";
 import { ResponseCacheService, responseCacheKeys } from "../services/response-cache";
 import { Contributor } from "../entities/Contributor";
 import { z } from "zod";
+import { createProofLookup, enrichMilestone, summarizeMilestones } from "../utils/milestones";
 
 // ---------------------------------------------------------------------------
 // Query-param validation helpers
@@ -95,6 +96,8 @@ const watchSchema = z.object({
 
 export const buildGrantRouter = (
   grantRepo: Repository<Grant>,
+  milestoneRepo: Repository<Milestone>,
+  proofRepo: Repository<MilestoneProof>,
   syncService: GrantSyncService,
   signatureService: SignatureService,
   responseCache: ResponseCacheService,
@@ -251,11 +254,16 @@ export const buildGrantRouter = (
         milestonesByGrantId.set(milestone.grantId, current);
       }
 
-      const responseData = data.map(g => ({
-        ...localizeGrant(g, lang),
-        isWatched: watchedGrantIds.has(g.id),
-        recipientProfile: toProfile(profiles.get(g.recipient)),
-      }));
+      const responseData = data.map(g => {
+        const summary = summarizeMilestones(milestonesByGrantId.get(g.id) || []);
+        return {
+          ...localizeGrant(g, lang),
+          isWatched: watchedGrantIds.has(g.id),
+          recipientProfile: toProfile(profiles.get(g.recipient)),
+          milestoneSummary: summary,
+          hasOverdueMilestones: summary.overdue > 0,
+        };
+      });
 
       const payload = {
         data: responseData,
@@ -305,7 +313,29 @@ export const buildGrantRouter = (
         isWatched = !!watchlistEntry;
       }
 
-      res.json({ data: { ...localizeGrant(grant, lang), isWatched, recipientProfile: toProfile(recipientProfile ?? undefined) } });
+      const milestones = await milestoneRepo.find({
+        where: { grantId: id },
+        order: { deadline: "ASC", idx: "ASC" },
+      });
+      const proofs = await proofRepo.find({
+        where: { grantId: id },
+        select: { grantId: true, milestoneIdx: true, createdAt: true },
+      });
+      const proofLookup = createProofLookup(proofs);
+      const enrichedMilestones = milestones.map(m => enrichMilestone(m, proofLookup.get(`${m.grantId}:${m.idx}`)));
+
+      const summary = summarizeMilestones(enrichedMilestones);
+
+      res.json({
+        data: {
+          ...localizeGrant(grant, lang),
+          isWatched,
+          recipientProfile: toProfile(recipientProfile ?? undefined),
+          milestones: enrichedMilestones,
+          milestoneSummary: summary,
+          hasOverdueMilestones: summary.overdue > 0,
+        },
+      });
     } catch (error) {
       next(error);
     }

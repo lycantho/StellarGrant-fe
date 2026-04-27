@@ -8,6 +8,7 @@ import { Grant } from "../entities/Grant";
 import { User } from "../entities/User";
 import * as emailService from "../services/email-service";
 import { notificationService } from "../services/notification-service";
+import { ResponseCacheService } from "../services/response-cache";
 
 const milestoneProofSchema = z.object({
   grantId: z.number().int().positive(),
@@ -23,6 +24,7 @@ const milestoneProofSchema = z.object({
 export const buildMilestoneProofRouter = (
   proofRepo: Repository<MilestoneProof>,
   signatureService: SignatureService,
+  responseCache: ResponseCacheService,
   grantRepo?: Repository<Grant>,
   userRepo?: Repository<User>,
 ) => {
