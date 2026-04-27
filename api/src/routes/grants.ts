@@ -96,6 +96,7 @@ export const buildGrantRouter = (
   grantRepo: Repository<Grant>,
   syncService: GrantSyncService,
   signatureService: SignatureService,
+  responseCache: ResponseCacheService,
 ) => {
   const router = Router();
   const watchlistRepo = grantRepo.manager.getRepository(UserWatchlist);
@@ -107,8 +108,8 @@ export const buildGrantRouter = (
 
   router.get("/", async (req, res, next) => {
     try {
-      await syncService.syncAllGrants();
       const lang = getPreferredLanguage(req.header("accept-language"));
+      const userAddress = req.header("x-user-address");
 
       // ---------------- Pagination ----------------
       const pagination = parsePagination(req.query.page, req.query.limit);
@@ -134,14 +135,32 @@ export const buildGrantRouter = (
 
       const tagsFilter = parseTags(req.query.tags);
 
+      const canUseListCache =
+        responseCache.isEnabled() &&
+        !userAddress &&
+        page === 1 &&
+        limit === 20 &&
+        !statusFilter &&
+        !funderFilter &&
+        tagsFilter.length === 0 &&
+        sortBy === "id" &&
+        order === "ASC";
+
+      if (canUseListCache) {
+        const cached = await responseCache.get(responseCacheKeys.grantsFirstPage(lang));
+        if (cached) {
+          res.type("application/json").send(cached);
+          return;
+        }
+      }
+
+      await syncService.syncAllGrants();
+
       // ---------------- Query Builder ----------------
       const qb = grantRepo.createQueryBuilder("grant");
 
-      // ⚡ Filters first (better index usage)
       if (statusFilter) {
-        qb.andWhere("LOWER(grant.status) = :status", {
-          status: statusFilter,
-        });
+        qb.andWhere("LOWER(grant.status) = :status", { status: statusFilter });
       }
 
       if (funderFilter) {
@@ -151,33 +170,33 @@ export const buildGrantRouter = (
       }
 
       /**
-       * FIXED TAG LOGIC:
-       * Instead of multiple AND LIKE (too strict + slow),
-       * we use OR grouping → matches ANY tag
+       * AND tag logic: every requested tag must appear in the grant's tags column.
+       * One andWhere per tag so all conditions must be satisfied simultaneously.
        */
       if (tagsFilter.length > 0) {
         tagsFilter.forEach((tag, idx) => {
-          qb.andWhere("LOWER(COALESCE(grant.tags, '')) LIKE :tag" + idx, {
-            ["tag" + idx]: `%${tag}%`,
-          });
+          qb.andWhere(
+            "LOWER(COALESCE(grant.tags, '')) LIKE :tag" + idx,
+            { ["tag" + idx]: `%${tag}%` },
+          );
         });
       }
 
-      // ---------------- Sorting + Pagination ----------------
+      // ---------------- Sorting ----------------
+      // totalAmount is stored as varchar so we must cast to a number before
+      // sorting, otherwise "9000" sorts after "10000" lexicographically.
       if (sortBy === "totalAmount") {
-        qb.orderBy("CAST(grant.totalAmount AS DECIMAL)", order);
+        qb.orderBy("CAST(grant.totalAmount AS REAL)", order);
       } else {
         qb.orderBy(`grant.${sortBy}`, order);
       }
-      
-      qb.skip((page - 1) * limit)
-        .take(limit);
+
+      qb.skip((page - 1) * limit).take(limit);
 
       // ---------------- Execute ----------------
       const [data, total] = await qb.getManyAndCount();
 
       // Add isWatched flag if user address is provided
-      const userAddress = req.header("x-user-address");
       let watchedGrantIds: Set<number> = new Set();
       if (userAddress) {
         const watchlistEntries = await watchlistRepo.find({
@@ -221,7 +240,7 @@ export const buildGrantRouter = (
         hasOverdueMilestones: (milestonesByGrantId.get(g.id) ?? []).some((milestone) => milestone.overdue),
       }));
 
-      res.json({
+      const payload = {
         data: responseData,
         meta: {
           total,
@@ -229,7 +248,12 @@ export const buildGrantRouter = (
           limit,
           totalPages: Math.ceil(total / limit),
         },
-      });
+      };
+      const body = JSON.stringify(payload);
+      if (canUseListCache) {
+        await responseCache.set(responseCacheKeys.grantsFirstPage(lang), body);
+      }
+      res.type("application/json").send(body);
     } catch (error) {
       next(error);
     }

@@ -37,6 +37,19 @@ describe("API e2e", () => {
     expect(response.body.data[0].title).toBe("Open Source Grants Q2");
   });
 
+  it("returns the same protocol stats from /stats and /api/stats", async () => {
+    const app = createApp(dataSource, sorobanClient);
+    await request(app).get("/grants");
+    const a = await request(app).get("/stats");
+    const b = await request(app).get("/api/stats");
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(a.body).toEqual(b.body);
+    expect(a.body.totalGrants).toBe(4);
+    expect(typeof a.body.totalFunded).toBe("number");
+    expect(typeof a.body.milestonesCompleted).toBe("number");
+  });
+
   it("returns pagination meta with total, page, limit, totalPages", async () => {
     const app = createApp(dataSource, sorobanClient);
     const response = await request(app).get("/grants");

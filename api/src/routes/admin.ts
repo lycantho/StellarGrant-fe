@@ -6,6 +6,7 @@ import { ReconciliationService } from "../services/reconciliation-service";
 import { Contributor } from "../entities/Contributor";
 import { AuditLog } from "../entities/AuditLog";
 import { Grant } from "../entities/Grant";
+import { ResponseCacheService } from "../services/response-cache";
 import { PlatformConfig } from "../entities/PlatformConfig";
 import { FeeCollection } from "../entities/FeeCollection";
 
@@ -31,6 +32,7 @@ export const buildAdminRouter = (
   grantSyncService: GrantSyncService,
   contributorRepo: Repository<Contributor>,
   auditLogRepo: Repository<AuditLog>,
+  responseCache: ResponseCacheService,
   reconciliationService?: ReconciliationService,
 ) => {
   const router = Router();
@@ -143,6 +145,8 @@ export const buildAdminRouter = (
         });
       });
 
+      await responseCache.invalidateGrantsAndStats();
+
       res.json({
         data: {
           action,
@@ -156,31 +160,6 @@ export const buildAdminRouter = (
         res.status(404).json({ error: error.message });
         return;
       }
-      next(error);
-    }
-  });
-
-  /**
-   * POST /admin/reconcile
-   * Manually trigger a reconciliation run. Returns the result immediately.
-   */
-  router.post("/reconcile", async (req, res, next) => {
-    if (!reconciliationService) {
-      res.status(503).json({ error: "Reconciliation service not available" });
-      return;
-    }
-    try {
-      const result = await reconciliationService.run();
-
-      await auditLogRepo.save({
-        adminAddress: (req as any).adminAddress,
-        action: "TRIGGER_RECONCILIATION",
-        target: `ledgers:${result.fromLedger}-${result.toLedger}`,
-        details: JSON.stringify(result),
-      });
-
-      res.json({ ok: true, result });
-    } catch (error) {
       next(error);
     }
   });

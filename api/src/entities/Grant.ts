@@ -1,6 +1,7 @@
 import { Column, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { Milestone } from "./Milestone";
 import { MilestoneProof } from "./MilestoneProof";
+import { GrantReviewer } from "./GrantReviewer";
 
 @Entity({ name: "grants" })
 export class Grant {
