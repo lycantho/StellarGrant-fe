@@ -11,6 +11,7 @@ import { Milestone } from "../../src/entities/Milestone";
 import { Contributor } from "../../src/entities/Contributor";
 import { User } from "../../src/entities/User";
 import { MilestoneApproval } from "../../src/entities/MilestoneApproval";
+import { Community } from "../../src/entities/Community";
 
 const TEST_ADDRESS = "GTESTFUNDERTOKEN123";
 const OTHER_ADDRESS = "GOTHERFUNDERTOKEN456";
@@ -73,7 +74,7 @@ describe("GET /my-donations", () => {
       type: "sqljs",
       location: "memory",
       autoSave: false,
-      entities: [Grant, Milestone, FeeCollection, MilestoneProof, GrantReviewer, Contributor, User, MilestoneApproval],
+      entities: [Grant, Community, Milestone, FeeCollection, MilestoneProof, GrantReviewer, Contributor, User, MilestoneApproval],
       synchronize: true,
     };
     dataSource = new DataSource(options);
@@ -83,7 +84,9 @@ describe("GET /my-donations", () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      await dataSource.destroy();
+    }
   });
 
   it("returns all donations for the authenticated funder, grouped by token", async () => {

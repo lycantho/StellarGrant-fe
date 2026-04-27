@@ -7,6 +7,7 @@ import { UserWatchlist } from "../entities/UserWatchlist";
 import { Milestone } from "../entities/Milestone";
 import { SorobanContractClient, SorobanMilestone } from "../soroban/types";
 import { notificationService } from "./notification-service";
+import { metricsService } from "./metrics-service";
 
 export class GrantSyncService {
   private readonly grantRepo: Repository<Grant>;
@@ -48,6 +49,7 @@ export class GrantSyncService {
           actorAddress: grant.recipient,
           data: { title: grant.title, totalAmount: grant.totalAmount },
         });
+        metricsService.incrementGrantCreated();
         notificationService.notifyUser(grant.recipient, "grant_created", { title: grant.title, grantId: grant.id });
       } else if (existingGrant.status !== grant.status) {
         // Log activity for status changes
@@ -93,6 +95,7 @@ export class GrantSyncService {
         actorAddress: grant.recipient,
         data: { title: grant.title, totalAmount: grant.totalAmount },
       });
+      metricsService.incrementGrantCreated();
       notificationService.notifyUser(grant.recipient, "grant_created", { title: grant.title, grantId: grant.id });
     } else if (existingGrant.status !== grant.status) {
       // Log activity for status changes

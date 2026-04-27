@@ -21,11 +21,11 @@ const bootstrap = async () => {
   // Initialize real-time notifications
   notificationService.initialize(server);
 
-  // Start the periodic reconciliation task (every 30 minutes)
+  // Start the periodic reconciliation task
   const grantSyncService = new GrantSyncService(dataSource, sorobanClient);
   const reconciliationService = new ReconciliationService(dataSource, sorobanClient, grantSyncService);
   const milestoneDeadlineService = new MilestoneDeadlineService(dataSource);
-  reconciliationService.start(30 * 60 * 1000);
+  reconciliationService.start(env.reconciliationIntervalMinutes * 60 * 1000);
   milestoneDeadlineService.start(24 * 60 * 60 * 1000);
 
   // Periodic rate limit spike alerts

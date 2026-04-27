@@ -154,6 +154,11 @@ export const buildGrantRouter = (
         : null;
 
       const tagsFilter = parseTags(req.query.tags);
+      const communityId = req.query.communityId ? Number(req.query.communityId) : null;
+      if (communityId !== null && Number.isNaN(communityId)) {
+        res.status(400).json({ error: "communityId must be a valid number" });
+        return;
+      }
 
       const canUseListCache =
         responseCache.isEnabled() &&
@@ -163,6 +168,7 @@ export const buildGrantRouter = (
         !statusFilter &&
         !funderFilter &&
         tagsFilter.length === 0 &&
+        !communityId &&
         sortBy === "id" &&
         order === "ASC";
 
@@ -187,6 +193,10 @@ export const buildGrantRouter = (
         qb.andWhere("LOWER(grant.recipient) LIKE :funder", {
           funder: `%${funderFilter.toLowerCase()}%`,
         });
+      }
+
+      if (communityId !== null) {
+        qb.andWhere("grant.communityId = :communityId", { communityId });
       }
 
       /**
@@ -296,7 +306,7 @@ export const buildGrantRouter = (
       await syncService.syncGrant(id);
       const lang = getPreferredLanguage(req.header("accept-language"));
 
-      const grant = await grantRepo.findOne({ where: { id } });
+      const grant = await grantRepo.findOne({ where: { id }, relations: { community: true } });
 
       if (!grant) {
         res.status(404).json({ error: "Grant not found" });

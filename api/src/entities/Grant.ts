@@ -1,7 +1,8 @@
-import { Column, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { Milestone } from "./Milestone";
 import { MilestoneProof } from "./MilestoneProof";
 import { GrantReviewer } from "./GrantReviewer";
+import { Community } from "./Community";
 
 @Entity({ name: "grants" })
 export class Grant {
@@ -30,6 +31,9 @@ export class Grant {
   @Column({ type: "simple-json", nullable: true })
   localizedMetadata!: Record<string, { title?: string; description?: string }> | null;
 
+  @Column({ type: "int", nullable: true })
+  communityId!: number | null;
+
   @UpdateDateColumn()
   updatedAt!: Date;
 
@@ -41,4 +45,8 @@ export class Grant {
 
   @OneToMany(() => GrantReviewer, (reviewer) => reviewer.grant)
   reviewers!: GrantReviewer[];
+
+  @ManyToOne(() => Community, (community) => community.grants, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "communityId" })
+  community!: Community | null;
 }

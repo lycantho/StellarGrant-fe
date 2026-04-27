@@ -40,18 +40,41 @@ import { GrantView } from "./entities/GrantView";
 import { PlatformConfig } from "./entities/PlatformConfig";
 import { FeeCollection } from "./entities/FeeCollection";
 import { Milestone } from "./entities/Milestone";
+import { Community } from "./entities/Community";
+import { MilestoneComment } from "./entities/MilestoneComment";
 import { ConfigService } from "./services/config-service";
 import { FeeService } from "./services/fee-service";
 import { buildAdminMiddleware } from "./middlewares/admin-middleware";
 import { SorobanContractClient } from "./soroban/types";
 import { createRateLimiter } from "./middlewares/rate-limiter";
 import { errorHandler, notFoundHandler } from "./middlewares/error-handler";
+import { metricsMiddleware } from "./middlewares/metrics-middleware";
 import { env } from "./config/env";
 import { requestLogger } from "./config/logger";
 import { v4 as uuidv4 } from "uuid";
+import { metricsService } from "./services/metrics-service";
+import { buildCommunitiesRouter } from "./routes/communities";
+import { buildMilestoneCommentsRouter } from "./routes/milestone-comments";
 
 export const createApp = (dataSource: DataSource, sorobanClient: SorobanContractClient) => {
   const app = express();
+
+  const isMetricsAuthorized = (req: express.Request) => {
+    const ip = req.ip || req.socket.remoteAddress || "";
+    const ipAllowed = env.metricsAllowedIps.includes(ip);
+
+    if (ipAllowed) return true;
+
+    if (env.metricsBasicAuthUser && env.metricsBasicAuthPassword) {
+      const auth = req.header("authorization");
+      if (!auth?.startsWith("Basic ")) return false;
+      const decoded = Buffer.from(auth.substring(6), "base64").toString("utf8");
+      const [user, pass] = decoded.split(":");
+      return user === env.metricsBasicAuthUser && pass === env.metricsBasicAuthPassword;
+    }
+
+    return false;
+  };
 
   // Security headers with Helmet
   app.use(helmet({
@@ -95,6 +118,8 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
     },
   }));
 
+  app.use(metricsMiddleware);
+
   app.use(express.json());
 
   const rateLimiter = createRateLimiter(dataSource);
@@ -118,12 +143,24 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   const ipfsService = new IpfsService();
   const configRepo = dataSource.getRepository(PlatformConfig);
   const feeRepo = dataSource.getRepository(FeeCollection);
+  const communityRepo = dataSource.getRepository(Community);
+  const milestoneCommentRepo = dataSource.getRepository(MilestoneComment);
   const configService = new ConfigService(configRepo);
   const feeService = new FeeService(feeRepo, configRepo);
   const adminMiddleware = buildAdminMiddleware(signatureService);
 
   // Health check endpoint (no versioning)
   app.get("/health", (_req, res) => res.json({ ok: true, version: "v1" }));
+  app.get("/metrics", async (req, res) => {
+    if (!isMetricsAuthorized(req)) {
+      res.setHeader("WWW-Authenticate", "Basic realm=metrics");
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    res.setHeader("Content-Type", metricsService.getContentType());
+    res.send(await metricsService.getMetricsText());
+  });
 
   // Apply rate limiting
   app.use(rateLimiter);
@@ -149,6 +186,8 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   app.use("/search", buildSearchRouter(dataSource));
   app.use("/profiles", buildProfilesRouter(contributorRepo));
   app.use("/watchlist", buildWatchlistRouter(dataSource.getRepository(UserWatchlist), grantRepo));
+  app.use("/communities", buildCommunitiesRouter(communityRepo, grantRepo, activityRepo));
+  app.use(buildMilestoneCommentsRouter(milestoneRepo, milestoneCommentRepo, grantReviewerRepo));
   app.use(buildMyDonationsRouter(dataSource));
   app.get("/config/fee", async (req, res) => {
     const fee = await configService.getFeePercentage();

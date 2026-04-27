@@ -5,6 +5,7 @@ import { ReconciliationCheckpoint } from "../entities/ReconciliationCheckpoint";
 import { SorobanContractClient, SorobanContractEvent } from "../soroban/types";
 import { logger } from "../config/logger";
 import { GrantSyncService } from "./grant-sync-service";
+import { metricsService } from "./metrics-service";
 
 /** How many ledgers to scan per reconciliation run (≈ 30 min at 5 s/ledger = 360 ledgers). */
 const MAX_LEDGER_RANGE = 400;
@@ -76,6 +77,7 @@ export class ReconciliationService {
             return await this.run();
         } catch (err) {
             logger.error("ReconciliationService: unhandled error during run", { err });
+            metricsService.recordReconciliationRun("failure", 0);
             return null;
         }
     }
@@ -107,9 +109,10 @@ export class ReconciliationService {
 
         // 3. Fill each gap.
         let gapsFilled = 0;
+        const writtenEventIds = new Set<string>();
         for (const event of gaps) {
             try {
-                await this.fillGap(event);
+                await this.fillGap(event, writtenEventIds);
                 gapsFilled++;
             } catch (err: any) {
                 const msg = `Failed to fill gap for event ${event.id}: ${err?.message ?? err}`;
@@ -131,6 +134,7 @@ export class ReconciliationService {
             durationMs: Date.now() - startTime,
         };
 
+        metricsService.recordReconciliationRun(errors.length > 0 ? "failure" : "success", gaps.length);
         logger.info("ReconciliationService: run complete", result);
         return result;
     }
@@ -147,8 +151,7 @@ export class ReconciliationService {
     private async findGaps(events: SorobanContractEvent[]): Promise<SorobanContractEvent[]> {
         if (events.length === 0) return [];
 
-        // Fetch all on-chain activity records that overlap with these event IDs.
-        const eventIds = events.map((e) => e.id);
+        const dedupedEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
 
         // We store the on-chain event id in activity.data.eventId for deduplication.
         // Use a raw query for efficiency when the list is large.
@@ -164,14 +167,14 @@ export class ReconciliationService {
                 .map((a) => a.data!.eventId as string),
         );
 
-        return events.filter((e) => !knownEventIds.has(e.id));
+        return dedupedEvents.filter((e) => !knownEventIds.has(e.id));
     }
 
     // ---------------------------------------------------------------------------
     // Gap filling
     // ---------------------------------------------------------------------------
 
-    private async fillGap(event: SorobanContractEvent): Promise<void> {
+    private async fillGap(event: SorobanContractEvent, writtenEventIds: Set<string>): Promise<void> {
         // Ensure the grant exists in our DB (sync it if missing/stale).
         const grant = await this.grantRepo.findOne({ where: { id: event.grantId } });
         if (!grant) {
@@ -183,14 +186,18 @@ export class ReconciliationService {
         }
 
         // Write the missing Activity record.
-        await this.writeActivity(event);
+        await this.writeActivity(event, writtenEventIds);
     }
 
     private isGrantStateEvent(type: string): boolean {
         return ["grant_updated", "grant_funded", "grant_completed", "milestone_approved"].includes(type);
     }
 
-    private async writeActivity(event: SorobanContractEvent): Promise<void> {
+    private async writeActivity(event: SorobanContractEvent, writtenEventIds: Set<string>): Promise<void> {
+        if (writtenEventIds.has(event.id)) {
+            return;
+        }
+
         const activity = new Activity();
         activity.type = this.mapEventType(event.type);
         activity.entityType = "grant";
@@ -199,6 +206,7 @@ export class ReconciliationService {
         // Merge the original event data with our deduplication key.
         activity.data = { ...event.data, eventId: event.id, ledger: event.ledger, reconciled: true };
         await this.activityRepo.save(activity);
+        writtenEventIds.add(event.id);
     }
 
     private mapEventType(onChainType: string): ActivityType {

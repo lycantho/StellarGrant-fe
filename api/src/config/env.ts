@@ -26,4 +26,11 @@ export const env = {
   rateLimitAlertWindowMinutes: Math.max(1, Number(process.env.RATE_LIMIT_ALERT_WINDOW_MINUTES ?? 5)),
   rateLimitAlertThreshold: Math.max(1, Number(process.env.RATE_LIMIT_ALERT_THRESHOLD ?? 200)),
   rateLimitAlertCooldownMinutes: Math.max(1, Number(process.env.RATE_LIMIT_ALERT_COOLDOWN_MINUTES ?? 10)),
+  reconciliationIntervalMinutes: Math.max(1, Number(process.env.RECONCILIATION_INTERVAL_MINUTES ?? 30)),
+  metricsBasicAuthUser: process.env.METRICS_BASIC_AUTH_USER ?? "",
+  metricsBasicAuthPassword: process.env.METRICS_BASIC_AUTH_PASSWORD ?? "",
+  metricsAllowedIps: (process.env.METRICS_ALLOWED_IPS ?? "127.0.0.1,::1,::ffff:127.0.0.1")
+    .split(",")
+    .map((ip: string) => ip.trim())
+    .filter(Boolean),
 };
