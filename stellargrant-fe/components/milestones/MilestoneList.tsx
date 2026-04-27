@@ -1,93 +1,155 @@
 /**
  * MilestoneList Component
- * 
+ *
  * Ordered list of milestones with status indicators.
+ * Displays token and payout amount for each milestone.
  * Clicking a milestone navigates to its detail page.
  */
 
-import Link from "next/link";
+"use client";
 
-interface Milestone {
-  idx: number;
-  title: string;
-  description: string | null;
-  deadline: string;
-  submitted: boolean;
-  overdue: boolean;
-  daysUntilDeadline: number;
-}
+import { useEffect, useState } from "react";
+import { formatTokenAmount, getTokenMetadata, TokenMetadata } from "@/lib/tokens";
+import { Milestone as MilestoneType } from "@/types";
 
 interface MilestoneListProps {
-  milestones: Milestone[];
+  milestones: MilestoneType[];
   grantId: string;
+  grantToken?: string; // Fallback token if milestone doesn't specify one
 }
 
-const formatDeadline = (value: string) =>
-  new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+interface MilestoneDisplay extends MilestoneType {
+  statusLabel: string;
+  tokenSymbol: string;
+  amountFormatted: string;
+}
 
-export function MilestoneList({ milestones, grantId }: MilestoneListProps) {
-  const renderStatus = (milestone: Milestone) => {
+export function MilestoneList({ milestones, grantId, grantToken }: MilestoneListProps) {
+  const [tokenMetadataMap, setTokenMetadataMap] = useState<Map<string, TokenMetadata>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Collect all unique tokens from milestones
+  const uniqueTokens = Array.from(
+    new Set(
+      milestones
+        .map((m) => m.token || grantToken)
+        .filter((t): t is string => !!t)
+    )
+  );
+
+  // Fetch metadata for all tokens
+  useEffect(() => {
+    async function fetchMetadata() {
+      setIsLoading(true);
+      const metadataMap = new Map<string, TokenMetadata>();
+
+      for (const token of uniqueTokens) {
+        const metadata = await getTokenMetadata(token);
+        metadataMap.set(token, metadata);
+      }
+
+      setTokenMetadataMap(metadataMap);
+      setIsLoading(false);
+    }
+
+    fetchMetadata();
+  }, [uniqueTokens]);
+
+  const getMilestoneStatus = (milestone: MilestoneType): string => {
+    if (milestone.paid) return "Paid";
+    if (milestone.approved) return "Approved";
     if (milestone.submitted) return "Submitted";
     if (milestone.overdue) return "Overdue";
     if (milestone.daysUntilDeadline <= 7) return "Due Soon";
     return "Pending";
   };
 
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case "Paid":
+        return "bg-green-100 text-green-800";
+      case "Approved":
+        return "bg-blue-100 text-blue-800";
+      case "Submitted":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatMilestoneAmount = (milestone: MilestoneType): string => {
+    const token = milestone.token || grantToken;
+    if (!token || milestone.amount === undefined || milestone.amount === null) {
+      return "";
+    }
+
+    const metadata = tokenMetadataMap.get(token);
+    const decimals = metadata?.decimals ?? 7;
+    const symbol = metadata?.symbol ?? "UNKNOWN";
+
+    return formatTokenAmount(milestone.amount, decimals, { symbol, showSymbol: true });
+  };
+
+  const getTokenSymbol = (milestone: MilestoneType): string => {
+    const token = milestone.token || grantToken;
+    if (!token) return "XLM";
+
+    const metadata = tokenMetadataMap.get(token);
+    return metadata?.symbol ?? "UNKNOWN";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border rounded p-4 bg-gray-50">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {milestones.map((milestone) => (
-        <Link
-          key={milestone.idx}
-          href={`/grants/${grantId}/milestones/${milestone.idx}`}
-          className={`block rounded-[4px] border p-5 transition-colors ${
-            milestone.overdue
-              ? "border-danger/40 bg-danger/10"
-              : milestone.submitted
-                ? "border-success/30 bg-success/10"
-                : "border-border-color bg-surface/70 hover:border-accent-secondary/60"
-          }`}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-text-muted">
-                Milestone {milestone.idx + 1}
-              </p>
-              <h4 className="mt-2 text-lg font-semibold text-text-primary">{milestone.title}</h4>
-              {milestone.description && (
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-                  {milestone.description}
-                </p>
-              )}
-            </div>
-            <span
-              className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] ${
-                milestone.overdue
-                  ? "bg-danger/15 text-danger"
-                  : milestone.submitted
-                    ? "bg-success/15 text-success"
-                    : "bg-warning/15 text-warning"
-              }`}
-            >
-              {renderStatus(milestone)}
-            </span>
-          </div>
+      {milestones.map((milestone) => {
+        const statusLabel = getMilestoneStatus(milestone);
+        const statusColor = getStatusColor(statusLabel);
+        const amountFormatted = formatMilestoneAmount(milestone);
+        const tokenSymbol = getTokenSymbol(milestone);
 
-          <div className="mt-4 flex flex-wrap gap-4 text-sm text-text-muted">
-            <span>Deadline: {formatDeadline(milestone.deadline)}</span>
-            <span>
-              {milestone.submitted
-                ? "Proof received"
-                : milestone.overdue
-                  ? `${Math.abs(milestone.daysUntilDeadline)} day(s) late`
-                  : `${milestone.daysUntilDeadline} day(s) remaining`}
-            </span>
+        return (
+          <div
+            key={milestone.idx}
+            className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-sm font-mono text-gray-500">
+                    #{milestone.idx}
+                  </span>
+                  <h4 className="font-semibold text-lg">{milestone.title}</h4>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{milestone.description}</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+                    {statusLabel}
+                  </span>
+                  {amountFormatted && (
+                    <span className="text-gray-700 font-medium">
+                      Payout: {amountFormatted}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
