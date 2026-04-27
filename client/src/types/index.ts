@@ -90,6 +90,32 @@ export type MilestoneVoteInput = {
 };
 
 /**
+ * Fee priority tiers used by the SDK when estimating transaction fees.
+ *
+ * - `"low"`    – 1.0× the simulated resource fee. Cheapest but may be slow
+ *               during network congestion.
+ * - `"medium"` – 1.5× the simulated resource fee (default). Balances cost
+ *               and inclusion speed.
+ * - `"high"`   – 2.0× the simulated resource fee. Prioritises fast inclusion
+ *               at higher cost.
+ */
+export type FeePriority = "low" | "medium" | "high";
+
+/**
+ * Per-priority fee estimate returned by `StellarGrantsSDK.estimateFees()`.
+ */
+export type FeeEstimate = {
+  /** Raw simulated resource fee (in stroops) before any multiplier. */
+  base: string;
+  /** Fee at low priority (1.0× base). */
+  low: string;
+  /** Fee at medium priority (1.5× base). */
+  medium: string;
+  /** Fee at high priority (2.0× base). */
+  high: string;
+};
+
+/**
  * Options for state-changing transaction invocations.
  */
 export type WriteOptions = {
@@ -99,4 +125,12 @@ export type WriteOptions = {
   transactionData?: any; // xdr.SorobanTransactionData
   /** Explicit fee to use, bypassing automatic calculation. */
   simulatedFee?: string;
+  /**
+   * Fee priority tier. When set this takes precedence over `feeMultiplier`
+   * (unless `simulatedFee` is also provided, which always wins).
+   *
+   * Defaults to `"medium"` when neither `feeMultiplier` nor `simulatedFee`
+   * is specified.
+   */
+  feePriority?: FeePriority;
 };
