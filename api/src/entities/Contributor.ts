@@ -18,6 +18,21 @@ export class Contributor {
   @Column({ type: "varchar", length: 254, nullable: true })
   email!: string | null;
 
+  @Column({ type: "text", nullable: true })
+  bio!: string | null;
+
+  @Column({ type: "varchar", length: 2048, nullable: true })
+  profilePictureUrl!: string | null;
+
+  @Column({ type: "varchar", length: 2048, nullable: true })
+  githubUrl!: string | null;
+
+  @Column({ type: "varchar", length: 2048, nullable: true })
+  twitterUrl!: string | null;
+
+  @Column({ type: "varchar", length: 2048, nullable: true })
+  linkedinUrl!: string | null;
+
   @Column({ type: "boolean", default: true })
   emailNotifications!: boolean;
 

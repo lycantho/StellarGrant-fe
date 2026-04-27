@@ -1,8 +1,12 @@
 import { Router } from "express";
 import { Repository } from "typeorm";
 import { Activity } from "../entities/Activity";
+import { Contributor } from "../entities/Contributor";
 
-export const buildActivityRouter = (activityRepo: Repository<Activity>) => {
+export const buildActivityRouter = (
+  activityRepo: Repository<Activity>,
+  contributorRepo: Repository<Contributor>,
+) => {
   const router = Router();
 
   router.get("/", async (req, res, next) => {
@@ -25,6 +29,11 @@ export const buildActivityRouter = (activityRepo: Repository<Activity>) => {
       }
 
       const activities = await qb.getMany();
+      const addresses = [...new Set(activities.map((a) => a.actorAddress).filter(Boolean))] as string[];
+      const contributors = addresses.length
+        ? await contributorRepo.findBy(addresses.map((address) => ({ address })))
+        : [];
+      const byAddress = new Map(contributors.map((c) => [c.address, c]));
 
       let nextCursor: string | null = null;
       if (activities.length > limit) {
@@ -35,7 +44,18 @@ export const buildActivityRouter = (activityRepo: Repository<Activity>) => {
       }
 
       res.json({
-        data: activities,
+        data: activities.map((a) => ({
+          ...a,
+          actorProfile: a.actorAddress ? {
+            address: a.actorAddress,
+            bio: byAddress.get(a.actorAddress)?.bio ?? null,
+            profilePictureUrl: byAddress.get(a.actorAddress)?.profilePictureUrl ?? null,
+            githubUrl: byAddress.get(a.actorAddress)?.githubUrl ?? null,
+            twitterUrl: byAddress.get(a.actorAddress)?.twitterUrl ?? null,
+            linkedinUrl: byAddress.get(a.actorAddress)?.linkedinUrl ?? null,
+            updatedAt: byAddress.get(a.actorAddress)?.updatedAt ?? null,
+          } : null,
+        })),
         meta: {
           nextCursor,
           limit,
