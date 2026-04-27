@@ -1,3 +1,4 @@
+import { buildMyDonationsRouter } from "./routes/my-donations";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -141,6 +142,7 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   app.use("/analytics", buildAnalyticsRouter(grantRepo, grantViewRepo));
   app.use("/search", buildSearchRouter(dataSource));
   app.use("/watchlist", buildWatchlistRouter(dataSource.getRepository(UserWatchlist), grantRepo));
+  app.use(buildMyDonationsRouter(dataSource));
   app.get("/config/fee", async (req, res) => {
     const fee = await configService.getFeePercentage();
     res.json({ feePercentage: fee });

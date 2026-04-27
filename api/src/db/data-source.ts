@@ -11,8 +11,11 @@ import { ReputationLog } from "../entities/ReputationLog";
 import { AuditLog } from "../entities/AuditLog";
 import { UserWatchlist } from "../entities/UserWatchlist";
 import { Activity } from "../entities/Activity";
+
 import { GrantView } from "../entities/GrantView";
 import { ReconciliationCheckpoint } from "../entities/ReconciliationCheckpoint";
+import { FeeCollection } from "../entities/FeeCollection";
+
 
 export const buildDataSource = (databaseUrl = env.databaseUrl) =>
   new DataSource({
@@ -33,6 +36,10 @@ export const buildDataSource = (databaseUrl = env.databaseUrl) =>
       Activity,
       GrantView,
       ReconciliationCheckpoint,
+      FeeCollection,
     ],
     synchronize: true,
   });
+
+// Export a singleton AppDataSource for use in routes/services
+export const AppDataSource = buildDataSource();
