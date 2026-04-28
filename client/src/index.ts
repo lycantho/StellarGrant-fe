@@ -33,6 +33,7 @@ export {
   PendingXdrStore,
 } from "./utils/transactions";
 export type { AccountSigner, AccountThresholds } from "./utils/transactions";
+export { isNativeXLM, toAssetScVal, NATIVE_XLM_ADDRESS } from "./utils/assets";
 export { uploadMetadataToIPFS, fetchMetadataFromIPFS } from "./ipfs";
 export {
   GRANT_METADATA_SCHEMA,

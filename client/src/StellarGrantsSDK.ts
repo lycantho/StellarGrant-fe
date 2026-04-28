@@ -27,6 +27,7 @@ import {
 } from "./types";
 import { EventParser, ParsedEvent } from "./events";
 import { retryWithBackoff } from "./utils/retry";
+import { isNativeXLM, toAssetScVal } from "./utils/assets";
 
 const READ_ONLY_SIMULATION_ACCOUNT =
   "GB3KJPLFUYN5VL6R3GU3EGCGVCKFDSD7BEDX42HWG5BWFKB3KQGJJRMA";
@@ -123,11 +124,50 @@ export class StellarGrantsSDK {
   /**
    * Funds an existing grant with tokens.
    *
+   * For native XLM funding, this method transparently handles the Stellar Asset Contract
+   * native asset address and computes required balances including fees.
+   *
    * @param input Funding details including grant ID, token address, and amount.
    * @param options Optional transaction configuration.
    * @returns A promise that resolves to the transaction submission result.
    */
   async grantFund(input: GrantFundInput, options?: WriteOptions): Promise<rpc.Api.SendTransactionResponse> {
+    const isNative = isNativeXLM(input.token);
+
+    // For native XLM, compute required balance (amount + estimated fee)
+    if (isNative) {
+      const signer = this.requireSigner();
+      const publicKey = await signer.getPublicKey();
+      const account = await this.withRetry(() => this.server.getAccount(publicKey)) as any;
+      const currentBalance = BigInt(account.balance);
+
+      // Estimate fee for the transaction
+      const txForSim = await this.buildTx("grant_fund", [
+        nativeToScVal(input.grantId, { type: "u32" }),
+        nativeToScVal(input.token, { type: "address" }),
+        nativeToScVal(input.amount, { type: "i128" }),
+      ]);
+      const simulation = await this.withRetry(() => this.server.simulateTransaction(txForSim)) as any;
+      this.ensureSimulationSuccess(simulation);
+
+      const baseFee = Number(simulation.minResourceFee ?? 0);
+      const dynamicFees = await this.resolveDynamicFeeModifiers();
+      const recommendedBase = dynamicFees?.recommendedBaseFee ?? baseFee;
+      const effectiveBase = Math.max(baseFee, recommendedBase);
+      const priority: FeePriority = options?.feePriority ?? "medium";
+      const modifiers = dynamicFees?.modifiers ?? DEFAULT_FEE_LEVEL_MODIFIERS;
+      const estimatedFee = BigInt(Math.ceil(effectiveBase * modifiers[priority]));
+
+      const required = input.amount + estimatedFee;
+      if (currentBalance < required) {
+        throw new StellarGrantsError(
+          `Insufficient XLM balance. Required: ${required} stroops, Available: ${currentBalance} stroops`,
+          "INSUFFICIENT_BALANCE",
+          { required, available: currentBalance },
+        );
+      }
+    }
+
     return this.invokeWrite("grant_fund", [
       nativeToScVal(input.grantId, { type: "u32" }),
       nativeToScVal(input.token, { type: "address" }),
