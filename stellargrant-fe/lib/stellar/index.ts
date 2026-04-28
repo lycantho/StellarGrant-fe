@@ -17,3 +17,20 @@ export type {
   GrantBalances,
   BalanceChangeListenerOptions,
 } from "./balances";
+
+// Multi-signature transaction support
+export {
+  buildUnsignedTransaction,
+  combineSignatures,
+  submitSignedXdr,
+  isValidTransactionXdr,
+  MultiSigTracker,
+} from "./multisig";
+export type {
+  TransactionXdr,
+  SignerStatus,
+  SignerEntry,
+  MultiSigStatus,
+  BuildUnsignedTxOptions,
+  SubmitOptions,
+} from "./multisig";
