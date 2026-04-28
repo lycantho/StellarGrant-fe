@@ -33,6 +33,77 @@ export type StellarGrantsSDKConfig = {
   pollingIntervalMs?: number;
   /** Maximum time in milliseconds to wait for a transaction confirmation. Defaults to 30000. */
   pollingTimeoutMs?: number;
+  /**
+   * Custom HTTP headers forwarded to every RPC request.
+   * Use for authentication tokens, API keys, or enterprise gateway requirements.
+   *
+   * @example { "X-Api-Key": "my-secret" }
+   */
+  customHeaders?: Record<string, string>;
+  /**
+   * Optional proxy URL that intercepts all RPC traffic.
+   * When set, the SDK routes every RPC call through this URL instead of
+   * `rpcUrl`. Useful in environments where direct RPC access is blocked by
+   * CORS or firewall policies.
+   *
+   * @example "https://my-proxy.example.com/stellar-rpc"
+   */
+  proxyUrl?: string;
+  /**
+   * Optional Horizon base URL used for dynamic fee recommendations via
+   * `/fee_stats`. If omitted, static multipliers are used.
+   */
+  horizonUrl?: string;
+  /**
+   * Optional explicit endpoint for fee stats. Takes precedence over
+   * `${horizonUrl}/fee_stats` when provided.
+   */
+  feeStatsEndpoint?: string;
+};
+
+/** Result of an allowance check. */
+export type AllowanceResult = {
+  /** Current approved amount (in base token units). */
+  amount: bigint;
+  /** Ledger sequence at which the allowance expires (0 = does not expire). */
+  expirationLedger: number;
+};
+
+/** Result returned by `checkAndSetAllowance`. */
+export type AllowanceCheckResult = {
+  /** Whether the allowance was already sufficient (no transaction needed). */
+  sufficient: boolean;
+  /** Current allowance before any update. */
+  current: bigint;
+  /** The required amount that was checked against. */
+  required: bigint;
+};
+
+/** Pinata IPFS upload configuration. */
+export type IpfsUploadConfig = {
+  /** Pinata API JWT (preferred) or API key for authentication. */
+  pinataJwt?: string;
+  /** Pinata API key (legacy). Use `pinataJwt` when available. */
+  pinataApiKey?: string;
+  /** Pinata API secret (legacy, required alongside `pinataApiKey`). */
+  pinataSecretKey?: string;
+  /** Optional display name for the pinned object. */
+  name?: string;
+  /** Explicit schema name for metadata validation before upload. */
+  metadataSchema?: IpfsMetadataSchemaName;
+  /** Disable local schema validation in exceptional flows. */
+  skipSchemaValidation?: boolean;
+};
+
+/** Supported built-in metadata schemas for IPFS artifacts. */
+export type IpfsMetadataSchemaName = "grant" | "milestone";
+
+/** Result of a successful IPFS upload. */
+export type IpfsUploadResult = {
+  /** IPFS Content Identifier. */
+  cid: string;
+  /** Public gateway URL for convenient browser access. */
+  gatewayUrl: string;
 };
 
 /**
@@ -90,6 +161,50 @@ export type MilestoneVoteInput = {
 };
 
 /**
+ * Fee priority tiers used by the SDK when estimating transaction fees.
+ *
+ * - `"low"`    – 1.0× the simulated resource fee. Cheapest but may be slow
+ *               during network congestion.
+ * - `"medium"` – 1.5× the simulated resource fee (default). Balances cost
+ *               and inclusion speed.
+ * - `"high"`   – 2.0× the simulated resource fee. Prioritises fast inclusion
+ *               at higher cost.
+ */
+export type FeePriority = "low" | "medium" | "high";
+
+/**
+ * Per-priority fee estimate returned by `StellarGrantsSDK.estimateFees()`.
+ */
+export type FeeEstimate = {
+  /** Raw simulated resource fee (in stroops) before any multiplier. */
+  base: string;
+  /** Optional dynamic recommended base fee derived from recent network stats. */
+  recommendedBase?: string;
+  /** Fee at low priority using the effective low-tier modifier. */
+  low: string;
+  /** Fee at medium priority using the effective medium-tier modifier. */
+  medium: string;
+  /** Fee at high priority using the effective high-tier modifier. */
+  high: string;
+  /** Effective per-tier multipliers used for this estimate. */
+  modifiers: FeeLevelModifiers;
+  /** Network load bucket used to derive modifiers. */
+  networkLoad: FeeNetworkLoad;
+  /** Source used to derive fee modifiers. */
+  source: "horizon" | "simulation-fallback";
+};
+
+/** Frontend-safe per-tier multipliers returned with fee estimates. */
+export type FeeLevelModifiers = {
+  low: number;
+  medium: number;
+  high: number;
+};
+
+/** Coarse network load buckets for dynamic fee guidance. */
+export type FeeNetworkLoad = "low" | "moderate" | "high" | "surge";
+
+/**
  * Options for state-changing transaction invocations.
  */
 export type WriteOptions = {
@@ -99,4 +214,41 @@ export type WriteOptions = {
   transactionData?: any; // xdr.SorobanTransactionData
   /** Explicit fee to use, bypassing automatic calculation. */
   simulatedFee?: string;
+  /**
+   * Fee priority tier. When set this takes precedence over `feeMultiplier`
+   * (unless `simulatedFee` is also provided, which always wins).
+   *
+   * Defaults to `"medium"` when neither `feeMultiplier` nor `simulatedFee`
+   * is specified.
+   */
+  feePriority?: FeePriority;
+};
+
+/**
+ * Structured representation of a Grant returned by the on-chain contract.
+ */
+export type GrantData = {
+  id: number;
+  owner?: string;
+  title?: string;
+  description?: string;
+  budget?: bigint | string | number;
+  deadline?: bigint | string | number;
+  milestoneCount?: number;
+  status?: string;
+  [k: string]: unknown;
+};
+
+/**
+ * Structured representation of a Milestone returned by the on-chain contract.
+ */
+export type MilestoneData = {
+  grantId?: number;
+  idx?: number;
+  title?: string;
+  proofHash?: string;
+  approved?: boolean;
+  approvals?: number;
+  status?: string;
+  [k: string]: unknown;
 };

@@ -5,9 +5,9 @@ import { GrantCard } from "@/components/grants/GrantCard";
 
 /**
  * Grant Listing Page
- * 
+ *
  * Paginated, filterable list of all grants stored on-chain.
- * 
+ *
  * Query Parameters:
  * - status: open | active | completed | cancelled
  * - token: XLM | USDC | all
@@ -16,14 +16,15 @@ import { GrantCard } from "@/components/grants/GrantCard";
  * - q: string (search query)
  */
 
+/** Raw shape returned by the API */
 type GrantListItem = {
   id: number;
   title: string;
-  status: number;
-  totalAmount: string;
-  funded: number | bigint;
-  budget: number | bigint;
-  deadline: number | bigint;
+  status: string | number;
+  totalAmount?: string;
+  funded?: bigint | number;
+  budget?: bigint | number;
+  deadline?: bigint | number;
   token?: string;
   owner?: string;
   hasOverdueMilestones?: boolean;
@@ -36,8 +37,33 @@ type GrantListItem = {
   };
 };
 
+/** Shape expected by GrantCard */
+type GrantCardInput = {
+  id: number;
+  title: string;
+  status: number;
+  funded: bigint | number;
+  budget: bigint | number;
+  deadline: bigint | number;
+  token?: string;
+  owner?: string;
+};
+
+function normaliseGrant(raw: GrantListItem): GrantCardInput {
+  return {
+    id: raw.id,
+    title: raw.title,
+    status: typeof raw.status === "number" ? raw.status : 0,
+    funded: raw.funded ?? 0,
+    budget: raw.budget ?? 0,
+    deadline: raw.deadline ?? 0,
+    token: raw.token,
+    owner: raw.owner,
+  };
+}
+
 export default function GrantsPage() {
-  const [grants, setGrants] = useState<GrantListItem[]>([]);
+  const [grants, setGrants] = useState<GrantCardInput[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +83,8 @@ export default function GrantsPage() {
         }
 
         const payload = await response.json();
-        setGrants(payload.data ?? []);
+        const raw: GrantListItem[] = payload.data ?? [];
+        setGrants(raw.map(normaliseGrant));
         setError(null);
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -72,6 +99,7 @@ export default function GrantsPage() {
     void loadGrants();
     return () => controller.abort();
   }, []);
+
 
   return (
     <div className="container mx-auto px-4 py-8">

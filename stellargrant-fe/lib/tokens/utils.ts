@@ -4,6 +4,8 @@
  * Helper functions for token formatting, parsing, and calculations.
  */
 
+import type { TokenMetadata as _TokenMetadata } from "@/types";
+
 /**
  * Format a token amount for display
  * @param amount - The raw amount (in smallest units, e.g., stroops)
@@ -129,9 +131,9 @@ export function convertTokenDecimals(
 
   const diff = toDecimals - fromDecimals;
   if (diff > 0) {
-    return amount * BigInt(10 ** diff);
+    return amount * (10n ** BigInt(diff));
   } else {
-    return amount / BigInt(10 ** Math.abs(diff));
+    return amount / (10n ** BigInt(Math.abs(diff)));
   }
 }
 

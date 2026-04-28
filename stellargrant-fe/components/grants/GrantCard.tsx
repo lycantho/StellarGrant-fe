@@ -30,7 +30,6 @@ interface GrantCardProps {
 
 export function GrantCard({ grant, onClick, showOwner = false, compact = false }: GrantCardProps) {
   const [tokenMetadata, setTokenMetadata] = useState<TokenMetadata | null>(null);
-
   useEffect(() => {
     async function fetchMetadata() {
       if (grant.token) {
