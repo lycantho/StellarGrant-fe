@@ -202,7 +202,7 @@ describe("addTokenAmounts and subTokenAmounts", () => {
 describe("formatTokenAddress", () => {
   it("should shorten long addresses", () => {
     const address = "GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    expect(formatTokenAddress(address)).toBe("GABCDE...4567890");
+    expect(formatTokenAddress(address)).toBe("GABCDE...567890");
   });
 
   it("should not shorten short addresses", () => {
@@ -215,7 +215,7 @@ describe("formatTokenAddress", () => {
 
   it("should handle custom char length", () => {
     const address = "GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-    expect(formatTokenAddress(address, 4)).toBe("GABC...4567890");
+    expect(formatTokenAddress(address, 4)).toBe("GABC...7890");
   });
 });
 
