@@ -641,6 +641,9 @@ export class StellarGrantsSDK {
   /**
    * Subscribes to contract events.
    *
+   * Attempts to use WebSocket if supported by the RPC endpoint, with automatic
+   * fallback to polling if WebSocket is unavailable or drops.
+   *
    * @param callback Function called for each new event.
    * @param options Filter options for events.
    * @returns A function to unsubscribe.
@@ -651,46 +654,148 @@ export class StellarGrantsSDK {
   ): () => void {
     let active = true;
     let currentCursor: string | undefined = undefined;
+    let ws: any = null;
+    let pollTimer: any = null;
 
-    const poll = async () => {
-      if (!active) return;
-      try {
-        const req: any = {
-          filters: [{ type: "contract", contractIds: [this.config.contractId] }],
-        };
-        if (!currentCursor && options?.startLedger) {
-          req.startLedger = options.startLedger;
-        }
-        if (currentCursor) {
-          req.pagination = { cursor: currentCursor };
-        }
-
-        const response = await this.server.getEvents(req);
-        if (response.events) {
-          for (const ev of response.events) {
-            currentCursor = ev.id || ev.pagingToken || currentCursor;
-
-            if (options?.eventName) {
-              const topicMatches = ev.topic && ev.topic.some((t: any) => {
-                try {
-                  const scVal = typeof t === "string" ? xdr.ScVal.fromXDR(t, "base64") : t;
-                  const parsed = scValToNative(scVal);
-                  return parsed === options.eventName || String(parsed) === options.eventName;
-                } catch { return false; }
-              });
-              if (!topicMatches) continue;
-            }
-            callback(ev);
-          }
-        }
-      } catch (err) {
-        console.warn("Event poll error, continuing...", err);
-      }
-      if (active) setTimeout(poll, 5000);
+    const shouldUseWebSocket = (): boolean => {
+      // Check if RPC URL supports WebSocket (ws:// or wss://)
+      const url = this.config.proxyUrl ?? this.config.rpcUrl;
+      return url.startsWith("ws://") || url.startsWith("wss://");
     };
 
-    poll();
-    return () => { active = false; };
+    const normalizeEvent = (ev: any): any => {
+      // Standardize event payload shape regardless of source (WebSocket vs polling)
+      return {
+        id: ev.id || ev.pagingToken,
+        type: ev.type,
+        contractId: ev.contractId,
+        topic: ev.topic,
+        value: ev.value,
+        ledger: ev.ledger,
+        timestamp: ev.timestamp,
+      };
+    };
+
+    const matchesFilter = (ev: any): boolean => {
+      if (!options?.eventName) return true;
+      if (!ev.topic) return false;
+      return ev.topic.some((t: any) => {
+        try {
+          const scVal = typeof t === "string" ? xdr.ScVal.fromXDR(t, "base64") : t;
+          const parsed = scValToNative(scVal);
+          return parsed === options.eventName || String(parsed) === options.eventName;
+        } catch { return false; }
+      });
+    };
+
+    const handleEvent = (ev: any) => {
+      if (!active) return;
+      currentCursor = ev.id || ev.pagingToken || currentCursor;
+      if (matchesFilter(ev)) {
+        callback(normalizeEvent(ev));
+      }
+    };
+
+    const startPolling = () => {
+      const poll = async () => {
+        if (!active) return;
+        try {
+          const req: any = {
+            filters: [{ type: "contract", contractIds: [this.config.contractId] }],
+          };
+          if (!currentCursor && options?.startLedger) {
+            req.startLedger = options.startLedger;
+          }
+          if (currentCursor) {
+            req.pagination = { cursor: currentCursor };
+          }
+
+          const response = await this.server.getEvents(req);
+          if (response.events) {
+            for (const ev of response.events) {
+              handleEvent(ev);
+            }
+          }
+        } catch (err) {
+          console.warn("Event poll error, continuing...", err);
+        }
+        if (active) pollTimer = setTimeout(poll, 5000);
+      };
+      poll();
+    };
+
+    const startWebSocket = () => {
+      try {
+        const url = this.config.proxyUrl ?? this.config.rpcUrl;
+        // Convert http(s) to ws(s) if needed
+        const wsUrl = url.replace(/^http/, "ws");
+        ws = new (globalThis as any).WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log("[StellarGrantsSDK] WebSocket connection established for events");
+          // Subscribe to events
+          ws.send(JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "events",
+            params: {
+              filters: [{ type: "contract", contractIds: [this.config.contractId] }],
+              ...(options?.startLedger && { startLedger: options.startLedger }),
+            },
+          }));
+        };
+
+        ws.onmessage = (msg: any) => {
+          try {
+            const data = JSON.parse(msg.data);
+            if (data.result && data.result.events) {
+              for (const ev of data.result.events) {
+                handleEvent(ev);
+              }
+            }
+          } catch (err) {
+            console.warn("WebSocket message parse error", err);
+          }
+        };
+
+        ws.onerror = (err: any) => {
+          console.warn("[StellarGrantsSDK] WebSocket error, falling back to polling", err);
+          if (ws) {
+            ws.close();
+            ws = null;
+          }
+          startPolling();
+        };
+
+        ws.onclose = () => {
+          if (active) {
+            console.warn("[StellarGrantsSDK] WebSocket closed, falling back to polling");
+            startPolling();
+          }
+        };
+      } catch (err) {
+        console.warn("[StellarGrantsSDK] WebSocket initialization failed, using polling", err);
+        startPolling();
+      }
+    };
+
+    if (shouldUseWebSocket()) {
+      startWebSocket();
+    } else {
+      startPolling();
+    }
+
+    return () => {
+      active = false;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+    };
   }
 
   // ---------------------------------------------------------------------------
