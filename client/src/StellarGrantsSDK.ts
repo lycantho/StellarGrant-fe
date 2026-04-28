@@ -7,6 +7,7 @@ import {
   scValToNative,
   xdr,
 } from "@stellar/stellar-sdk";
+import { GrantData, MilestoneData } from "./types";
 import { parseSorobanError } from "./errors/parseSorobanError";
 import { StellarGrantsError } from "./errors/StellarGrantsError";
 import {
@@ -156,8 +157,10 @@ export class StellarGrantsSDK {
    * @param grantId The unique numeric ID of the grant.
    * @returns A promise that resolves to the grant data.
    */
-  async grantGet(grantId: number): Promise<unknown> {
-    return this.invokeRead("grant_get", [nativeToScVal(grantId, { type: "u32" })]);
+  async grantGet(grantId: number): Promise<GrantData | null> {
+    const raw = await this.invokeRead("grant_get", [nativeToScVal(grantId, { type: "u32" })]);
+    if (raw === null) return null;
+    return this.assertGrantShape(raw);
   }
 
   /**
@@ -167,11 +170,13 @@ export class StellarGrantsSDK {
    * @param milestoneIdx The 0-based index of the milestone.
    * @returns A promise that resolves to the milestone data.
    */
-  async milestoneGet(grantId: number, milestoneIdx: number): Promise<unknown> {
-    return this.invokeRead("milestone_get", [
+  async milestoneGet(grantId: number, milestoneIdx: number): Promise<MilestoneData | null> {
+    const raw = await this.invokeRead("milestone_get", [
       nativeToScVal(grantId, { type: "u32" }),
       nativeToScVal(milestoneIdx, { type: "u32" }),
     ]);
+    if (raw === null) return null;
+    return this.assertMilestoneShape(raw);
   }
 
   /**
@@ -656,5 +661,41 @@ export class StellarGrantsSDK {
     const retval = simulation?.result?.retval;
     if (!retval) return null;
     return scValToNative(retval);
+  }
+
+  private assertGrantShape(raw: any): GrantData {
+    // Basic runtime shape checks and conversions to help TypeScript callers.
+    const obj = raw as any;
+    if (obj == null) throw new Error("Invalid grant: null/undefined");
+    const id = Number(obj.id ?? obj["id"] ?? obj._id ?? obj._native?.id);
+    if (!Number.isFinite(id)) {
+      throw new Error("Invalid grant: missing numeric id");
+    }
+    const out: GrantData = { id };
+    if (obj.owner) out.owner = String(obj.owner);
+    if (obj.title) out.title = String(obj.title);
+    if (obj.description) out.description = String(obj.description);
+    if (obj.budget !== undefined) out.budget = typeof obj.budget === "bigint" ? obj.budget : obj.budget;
+    if (obj.deadline !== undefined) out.deadline = obj.deadline;
+    if (obj.milestoneCount !== undefined) out.milestoneCount = Number(obj.milestoneCount);
+    if (obj.status) out.status = String(obj.status);
+    // copy any other fields
+    Object.keys(obj).forEach((k) => { if ((out as any)[k] === undefined) (out as any)[k] = obj[k]; });
+    return out;
+  }
+
+  private assertMilestoneShape(raw: any): MilestoneData {
+    const obj = raw as any;
+    if (obj == null) throw new Error("Invalid milestone: null/undefined");
+    const out: MilestoneData = {};
+    if (obj.grantId !== undefined) out.grantId = Number(obj.grantId);
+    if (obj.idx !== undefined) out.idx = Number(obj.idx);
+    if (obj.title) out.title = String(obj.title);
+    if (obj.proofHash) out.proofHash = String(obj.proofHash);
+    if (obj.approved !== undefined) out.approved = Boolean(obj.approved);
+    if (obj.approvals !== undefined) out.approvals = Number(obj.approvals);
+    if (obj.status) out.status = String(obj.status);
+    Object.keys(obj).forEach((k) => { if ((out as any)[k] === undefined) (out as any)[k] = obj[k]; });
+    return out;
   }
 }

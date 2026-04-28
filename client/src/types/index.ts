@@ -188,3 +188,32 @@ export type WriteOptions = {
    */
   feePriority?: FeePriority;
 };
+
+/**
+ * Structured representation of a Grant returned by the on-chain contract.
+ */
+export type GrantData = {
+  id: number;
+  owner?: string;
+  title?: string;
+  description?: string;
+  budget?: bigint | string | number;
+  deadline?: bigint | string | number;
+  milestoneCount?: number;
+  status?: string;
+  [k: string]: unknown;
+};
+
+/**
+ * Structured representation of a Milestone returned by the on-chain contract.
+ */
+export type MilestoneData = {
+  grantId?: number;
+  idx?: number;
+  title?: string;
+  proofHash?: string;
+  approved?: boolean;
+  approvals?: number;
+  status?: string;
+  [k: string]: unknown;
+};

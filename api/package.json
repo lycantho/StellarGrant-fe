@@ -12,6 +12,9 @@
     "typeorm:sync": "tsx src/scripts/sync-db.ts"
   },
   "dependencies": {
+    "swagger-ui-express": "^4.6.3",
+    "swagger-jsdoc": "^6.2.8",
+    "jsonwebtoken": "^9.0.0",
     "@sendgrid/mail": "^8.1.6",
     "@stellar/stellar-sdk": "^13.3.0",
     "@types/cors": "^2.8.19",
