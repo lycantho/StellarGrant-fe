@@ -152,8 +152,7 @@ export const createApp = (dataSource: DataSource, sorobanClient: SorobanContract
   const feeService = new FeeService(feeRepo, configRepo);
   const adminMiddleware = buildAdminMiddleware(signatureService);
 
-  // Health check endpoints (no versioning, no rate limiting)
-  app.get("/health", (_req, res) => res.json({ ok: true, version: "v1" }));
+  // /health/liveness and /health/readiness probes
   app.use("/health", buildHealthRouter(dataSource, sorobanClient));
   // Health check endpoint (no versioning)
   app.get("/health", async (_req, res) => {
