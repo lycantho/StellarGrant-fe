@@ -39,3 +39,18 @@ export type {
   IpfsUploadConfig,
   IpfsUploadResult,
 } from "./types";
+
+// Vue composables (optional - requires Vue as peer dependency)
+export {
+  useStellarGrants,
+  useGrants,
+  useGrant,
+  provideStellarGrants,
+} from "./composables";
+export type {
+  StellarGrantsContext,
+  UseGrantsOptions,
+  UseGrantsResult,
+  UseGrantOptions,
+  UseGrantResult,
+} from "./composables";
